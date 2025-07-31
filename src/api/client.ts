@@ -1,7 +1,5 @@
 import axios from 'axios';
-import Constants from 'expo-constants';
-
-const API_URL = Constants.expoConfig?.extra?.API_URL || 'http://127.0.0.1:5000';
+import { API_URL } from '@env';
 
 const client = axios.create({
 baseURL: API_URL,

@@ -1,41 +1,89 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import client from '../api/client';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getCurrentUser,
+  signInWithEmail,
+  signUpWithEmail,
+  signOut,
+  updateProfile,
+} from "../integrations/hopin-backend/auth";
+import type { User } from "../types";
 
-interface AuthContextProps {
-  token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    phone: string,
+    photo: any
+  ) => Promise<void>;
   logout: () => Promise<void>;
+  updateUserProfile: (data: Partial<User>) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
-
-export const AuthContext = createContext<AuthContextProps>({
-  token: null,
-  login: async () => {},
-  logout: async () => {},
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-
-  async function login(email: string, password: string) {
-    const response = await client.post('/auth/login', { email, password });
-    setToken(response.data.access_token);
-    client.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`;
-  }
-
-  async function logout() {
-    await client.post('/auth/logout');
-    setToken(null);
-  }
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (token) {
-      client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    async function loadUser() {
+      try {
+        const user = await getCurrentUser();
+        setUser(user);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [token]);
 
+    loadUser();
+  }, []);
+
+  const signIn = async (email: string, password: string) => {
+    const { access_token, user } = await signInWithEmail(email, password);
+    await AsyncStorage.setItem("access_token", access_token);
+    setUser(user);
+  };
+
+  const signUp = async (email: string, password: string, name: string, phone: string, photo: any) => {
+    const { access_token, user } = await signUpWithEmail(email, password, name, phone, photo);
+    await AsyncStorage.setItem("access_token", access_token);
+    setUser(user);
+  };
+
+  const logout = async () => {
+    await signOut();
+    await AsyncStorage.removeItem("access_token");
+    setUser(null);
+  };
+
+  const updateUserProfile = async (data: Partial<User>) => {
+    await updateProfile(data);
+    const updatedUser = await getCurrentUser();
+    setUser(updatedUser);
+  };
+
+  const refreshUser = async () => {
+    const latest = await getCurrentUser();
+    setUser(latest);
+  };
   return (
-    <AuthContext.Provider value={{ token, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, signIn, signUp, logout, updateUserProfile, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  return context;
 }
