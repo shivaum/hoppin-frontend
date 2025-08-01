@@ -21,7 +21,7 @@ interface AuthContextType {
     photo: any
   ) => Promise<void>;
   logout: () => Promise<void>;
-  updateUserProfile: (data: Partial<User>) => Promise<void>;
+  updateUserProfile: (data: Partial<User> | FormData) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const updateUserProfile = async (data: Partial<User>) => {
+  const updateUserProfile = async (data: Partial<User> | FormData) => {
     await updateProfile(data);
     const updatedUser = await getCurrentUser();
     setUser(updatedUser);

@@ -1,18 +1,24 @@
-// src/pages/Messages.tsx
-import { useState, useEffect, useRef } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { useSocket } from "@/hooks/useSocket";
-import ConversationList from "@/components/messages/ConversationList";
-import ChatWindow from "@/components/messages/ChatWindow";
-import MessageInput from "@/components/messages/MessageInput";
-import { useConversationSocket } from "@/hooks/useConversationSocket";
-import { fetchMessagesWith, fetchUserConversations } from "@/integrations/hopin-backend/messaging";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+} from "react-native";
+import Toast from "react-native-toast-message";
+
+import { useAuth } from "../contexts/AuthContext";
+import { useSocket } from "../hooks/useSocket";
+import { useConversationSocket } from "../hooks/useConversationSocket";
+import ConversationList from "../components/messages/ConversationList";
+import ChatWindow from "../components/messages/ChatWindow";
+import MessageInput from "../components/messages/MessageInput";
+import { fetchMessagesWith, fetchUserConversations } from "../integrations/hopin-backend/messaging";
 
 export default function Messages() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const socket = useSocket();
 
   const [conversations, setConversations] = useState<any[]>([]);
@@ -20,19 +26,17 @@ export default function Messages() {
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
 
-  const bottomRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     fetchUserConversations()
       .then(setConversations)
       .catch(() =>
-        toast({
-          title: "Error loading conversations",
-          description: "Unable to load your conversations.",
-          variant: "destructive",
+        Toast.show({
+          type: "error",
+          text1: "Error loading conversations",
+          text2: "Unable to load your conversations.",
         })
       );
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     if (!selectedConv || !user) return;
@@ -40,15 +44,14 @@ export default function Messages() {
     fetchMessagesWith(selectedConv.otherUser.id, selectedConv.rideId)
       .then(setMessages)
       .catch(() =>
-        toast({
-          title: "Error loading messages",
-          description: "Unable to load conversation history.",
-          variant: "destructive",
+        Toast.show({
+          type: "error",
+          text1: "Error loading messages",
+          text2: "Unable to load conversation history.",
         })
       );
-  }, [selectedConv, user, toast]);
+  }, [selectedConv, user]);
 
-  // Hook into live socket updates
   useConversationSocket({
     socket,
     rideId: selectedConv?.rideId ?? undefined,
@@ -69,29 +72,22 @@ export default function Messages() {
   };
 
   return (
-  <div className="space-y-6">
-    <Card>
-      <CardHeader>
-        <CardTitle>Messages</CardTitle>
-      </CardHeader>
-
-      <CardContent className="h-[500px] flex overflow-hidden space-x-4">
-        <div className="w-64 border-r pr-2 overflow-y-auto">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.body}>
+        <View style={styles.sidebar}>
           <ConversationList
             conversations={conversations}
             selected={selectedConv}
             onSelect={setSelectedConv}
           />
-        </div>
-
-        <div className="flex-1 flex flex-col">
+        </View>
+        <KeyboardAvoidingView
+          style={styles.chatArea}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
           {selectedConv ? (
             <>
-              <ChatWindow
-                user={user}
-                conversation={selectedConv}
-                messages={messages}
-              />
+              <ChatWindow user={user} conversation={selectedConv} messages={messages} />
               <MessageInput
                 value={newMessage}
                 onChange={setNewMessage}
@@ -99,13 +95,28 @@ export default function Messages() {
               />
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              Select a conversation to start messaging.
-            </div>
+            <View style={styles.empty}>
+              <Text style={{ color: "#999" }}>Select a conversation to start messaging.</Text>
+            </View>
           )}
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-);
+        </KeyboardAvoidingView>
+      </View>
+      <Toast />
+    </SafeAreaView>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  header: {
+    fontSize: 24,
+    fontWeight: "bold",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  body: { flex: 1, flexDirection: "row" },
+  sidebar: { width: 100, borderRightWidth: 1, borderRightColor: "#ddd" },
+  chatArea: { flex: 1, justifyContent: "flex-end" },
+  empty: { flex: 1, justifyContent: "center", alignItems: "center" },
+});

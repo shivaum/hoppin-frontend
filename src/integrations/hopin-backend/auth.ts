@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { User } from "../../types";
 import { authorizedFetch } from "./utils/authFetch";
-import { setAccessToken } from "./utils/authFetch";
 import { API_URL } from '@env';
 
 export async function signUpWithEmail(
@@ -9,26 +8,35 @@ export async function signUpWithEmail(
   password: string,
   name: string,
   phone: string,
-  photo: File
+  photo: {
+    uri: string;
+    type?: string;
+    fileName?: string;
+}
 ) {
   const formData = new FormData();
   formData.append("email", email);
   formData.append("password", password);
   formData.append("name", name);
   formData.append("phone", phone);
-  formData.append("photo", photo);
+  formData.append("photo", {
+    uri: photo.uri,
+    type: photo.type || "image/jpeg",
+    name: photo.fileName || "profile.jpg",
+  } as any);
 
   const res = await fetch(`${API_URL}/auth/signup`, {
     method: "POST",
     body: formData,
-    credentials: "include",
   });
 
-  if (!res.ok) throw new Error("Signup failed");
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.error || "Signup failed");
+  }
 
   const { access_token } = await res.json();
-  AsyncStorage.setItem("access_token", access_token);
-  setAccessToken(access_token);
+  await AsyncStorage.setItem("access_token", access_token);
 
   const user = await getCurrentUser();
 
@@ -40,14 +48,15 @@ export async function signInWithEmail(email: string, password: string) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
-      credentials: "include"
     });
-    if (!res.ok) throw new Error("Login failed");
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData?.error || "Login failed");
+    }
   
     const { access_token } = await res.json();
   
-    AsyncStorage.setItem("access_token", access_token);
-    setAccessToken(access_token);
+    await AsyncStorage.setItem("access_token", access_token);
 
     const user = await getCurrentUser();
   
@@ -57,28 +66,36 @@ export async function signInWithEmail(email: string, password: string) {
 export async function signOut() {
   await authorizedFetch(`${API_URL}/auth/logout`, {
     method: "POST",
-    credentials: "include"
   });
-  setAccessToken("");
 }
 
 export async function getCurrentUser() {
-    const res = await authorizedFetch(`${API_URL}/user/profile`, {
-      credentials: "include"
-    });
-    if (!res.ok) return null;
+    const res = await authorizedFetch(`${API_URL}/user/profile`);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData?.error || "User profile retrieval failed.");
+    }
     return await res.json();
   }
   
-  export async function updateProfile(data: Partial<User>) {
-    const res = await authorizedFetch(`${API_URL}/user/profile`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(data),
-      credentials: "include"
-    });
-    if (!res.ok) throw new Error("Update failed");
-    return await res.json();
+export async function updateProfile(data: Partial<User> | FormData) {
+  const isFormData = data instanceof FormData;
+
+  const headers: Record<string, string> = {};
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
   }
+
+  const res = await authorizedFetch(`${API_URL}/user/profile`, {
+    method: "PATCH",
+    headers,
+    body: isFormData ? data : JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.error || "Profile update failed");
+  }
+
+  return await res.json();
+}

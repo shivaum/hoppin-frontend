@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ScrollView } from "react-native";
 import LoginForm from "../components/auth/LoginForm";
 import SignupForm from "../components/auth/SignupForm";
 
@@ -9,7 +9,7 @@ export default function AuthForm() {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
         {/* Tabs */}
         <View style={styles.tabList}>
@@ -51,17 +51,17 @@ export default function AuthForm() {
           )}
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#f9fafb", // Light neutral background
+    backgroundColor: "#f9fafb",
   },
   card: {
     width: width * 0.9,
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 8,
     overflow: "hidden",
-    backgroundColor: "#e5e7eb", // Light gray background
+    backgroundColor: "#e5e7eb",
   },
   tabTrigger: {
     flex: 1,
@@ -89,12 +89,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#e5e7eb",
   },
   tabTriggerActive: {
-    backgroundColor: "#3b82f6", // Primary blue
+    backgroundColor: "#3b82f6",
   },
   tabText: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#374151", // Slate gray
+    color: "#374151",
   },
   tabTextActive: {
     color: "#fff",
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: "#6b7280", // Muted gray
+    color: "#6b7280",
   },
   footerLink: {
     color: "#3b82f6",

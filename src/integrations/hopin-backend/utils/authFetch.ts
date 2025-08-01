@@ -1,47 +1,28 @@
 import { API_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-let accessToken: string | null = null;
+/**
+ * Performs a fetch request with the Authorization header set using the stored JWT access token.
+ * If the request returns a 401, the token is assumed invalid and the caller should handle re-auth.
+ */
+export async function authorizedFetch(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const token = await AsyncStorage.getItem("access_token");
 
-export function setAccessToken(token: string) {
-  accessToken = token;
-}
-
-export function getAccessToken() {
-  return accessToken;
-}
-
-export async function authorizedFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const response = await fetch(url, {
     ...options,
     headers: {
       ...(options.headers || {}),
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: token ? `Bearer ${token}` : "",
     },
   });
 
   if (response.status === 401) {
-    // Try to refresh the access token
-    const refreshResponse = await fetch(`${API_URL}/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-    });
-
-    if (refreshResponse.ok) {
-      const { access_token } = await refreshResponse.json();
-      setAccessToken(access_token);
-      AsyncStorage.setItem("access_token", access_token);
-      // Retry the original request with new access token
-      return await fetch(url, {
-        ...options,
-        headers: {
-          ...(options.headers || {}),
-          Authorization: `Bearer ${access_token}`,
-        },
-      });
-    } else {
-      throw new Error("Session expired. Please log in again.");
-    }
+    await AsyncStorage.removeItem("access_token");
+    // Optionally: trigger a logout or show a toast here
+    throw new Error("Unauthorized. Please log in again.");
   }
 
   return response;

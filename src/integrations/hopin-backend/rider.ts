@@ -22,8 +22,7 @@ export async function searchRides(
   to: string
 ): Promise<SearchRide[]> {
   const res = await authorizedFetch(
-    `${API_URL}/rider/search_rides?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
-    { credentials: "include" }
+    `${API_URL}/rider/search_rides?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
   );
   if (!res.ok) {
     const err = await safeJson(res);
@@ -43,7 +42,6 @@ export async function requestRide(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-    credentials: "include",
   });
   if (!res.ok) {
     const err = await safeJson(res);
@@ -57,8 +55,7 @@ export async function requestRide(
  */
 export async function getMyRideRequests(): Promise<RideRequestItem[]> {
   const res = await authorizedFetch(
-    `${API_URL}/rider/ride_requests`,
-    { credentials: "include" }
+    `${API_URL}/rider/ride_requests`
   );
   if (!res.ok) {
     const err = await safeJson(res);

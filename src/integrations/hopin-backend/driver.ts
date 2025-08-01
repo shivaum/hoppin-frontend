@@ -29,7 +29,6 @@ export async function createRide(data: CreateRidePayload): Promise<{ ride_id: st
       end_lng: data.endLng,
       status: data.status,
     }),
-    credentials: "include",
   });
   if (!res.ok) {
     const err = await safeJson(res);
@@ -43,8 +42,7 @@ export async function createRide(data: CreateRidePayload): Promise<{ ride_id: st
  */
 export async function getMyDriverRides(): Promise<DriverRide[]> {
   const res = await authorizedFetch(
-    `${API_URL}/driver/my_scheduled_rides`,
-    { credentials: "include" }
+    `${API_URL}/driver/my_scheduled_rides`
   );
   if (!res.ok) throw new Error("Failed to fetch my rides");
   const data = await res.json();
@@ -59,7 +57,7 @@ export async function acceptRideRequest(
 ): Promise<{ message: string }> {
   const res = await authorizedFetch(
     `${API_URL}/driver/ride_request/${requestId}/accept`,
-    { method: "POST", credentials: "include" }
+    { method: "POST" }
   );
   if (!res.ok) {
     const err = await safeJson(res);
@@ -76,7 +74,7 @@ export async function declineRideRequest(
 ): Promise<{ message: string }> {
   const res = await authorizedFetch(
     `${API_URL}/driver/ride_request/${requestId}/reject`,
-    { method: "POST", credentials: "include" }
+    { method: "POST" }
   );
   if (!res.ok) {
     const err = await safeJson(res);

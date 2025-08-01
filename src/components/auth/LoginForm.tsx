@@ -1,11 +1,15 @@
 import React from "react";
-import { View, Text, TextInput, StyleSheet, Button, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TextInput, StyleSheet, Button, Platform } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Toast from "react-native-toast-message";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigation } from "@react-navigation/native";
+import { RootStackParamList } from "../../navigation/types";
+import { StackNavigationProp } from "@react-navigation/stack";
+
+type AuthScreenNavProp = StackNavigationProp<RootStackParamList, "Auth">;
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -16,7 +20,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginForm() {
   const { signIn } = useAuth();
-  const navigation = useNavigation();
+  const navigation = useNavigation<AuthScreenNavProp>();
 
   const { control, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -28,10 +32,9 @@ export default function LoginForm() {
 
   const onSubmit = async (data: LoginFormValues) => {
     try {
-      console.log('came here');
       await signIn(data.email, data.password);
       Toast.show({ type: "success", text1: "Login successful", text2: "Welcome back to Hopin SLO" });
-      navigation.navigate("Home" as never); // Replace with your actual route
+      navigation.replace("Main");
     } catch (error: any) {
       Toast.show({
         type: "error",
@@ -42,7 +45,7 @@ export default function LoginForm() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.title}>Welcome Back</Text>
       <Text style={styles.subtitle}>Sign in to your account</Text>
 
@@ -86,12 +89,12 @@ export default function LoginForm() {
       </View>
 
       <Button title="Sign In" onPress={handleSubmit(onSubmit)} />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 20 },
+  container: { paddingVertical: 10 },
   title: { fontSize: 24, fontWeight: "bold", textAlign: "center", marginBottom: 10 },
   subtitle: { fontSize: 16, textAlign: "center", marginBottom: 20 },
   inputGroup: { marginBottom: 15 },
