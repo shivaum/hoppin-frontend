@@ -33,8 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadUser() {
       try {
-        const user = await getCurrentUser();
-        setUser(user);
+        refreshUser();
       } catch {
         setUser(null);
       } finally {
@@ -65,8 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUserProfile = async (data: Partial<User> | FormData) => {
     await updateProfile(data);
-    const updatedUser = await getCurrentUser();
-    setUser(updatedUser);
+    refreshUser();
   };
 
   const refreshUser = async () => {

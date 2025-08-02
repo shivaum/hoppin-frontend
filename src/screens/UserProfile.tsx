@@ -12,6 +12,7 @@ import ProfileActions from "../components/profile/ProfileActions";
 
 export default function UserProfile() {
   const { user, updateUserProfile, refreshUser } = useAuth();
+  console.log(user);
   const [editedUser, setEditedUser] = useState(user);
   const [isEditing, setIsEditing] = useState(false);
   const [photoFile, setPhotoFile] = useState<ImagePicker.ImagePickerAsset | null>(null);
