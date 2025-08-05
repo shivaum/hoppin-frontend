@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import Toast from "react-native-toast-message";
+import { useRoute } from "@react-navigation/native";
+
 import { useAuth } from "../contexts/AuthContext";
 import EditableAvatar from "../components/profile/EditableAvatar";
 import EditableField from "../components/profile/EditableField";
@@ -9,19 +11,44 @@ import DriverStatusCard from "../components/profile/DriverStatusCard";
 import DriverVerificationModal from "../components/profile/DriverVerification/DriverVerificationModal";
 import { uploadLicense } from "../components/profile/DriverVerification/utils";
 import ProfileActions from "../components/profile/ProfileActions";
+import ProfileRating from "../components/profile/ProfileRating";
+import { getPublicProfile } from "../integrations/hopin-backend/profile";
 
 export default function UserProfile() {
+  const route = useRoute<any>();
+  const requestedProfileId = route.params?.profileId;
+
   const { user, updateUserProfile, refreshUser } = useAuth();
-  console.log(user);
-  const [editedUser, setEditedUser] = useState(user);
+  const isCurrentUser = !requestedProfileId || requestedProfileId === user?.id;
+
+  const [profile, setProfile] = useState<any>(null);
+  const [editedUser, setEditedUser] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [photoFile, setPhotoFile] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setEditedUser(user);
-  }, [user]);
+    const fetchProfile = async () => {
+      try {
+        if (isCurrentUser) {
+          setProfile(user);
+          setEditedUser(user);
+        } else {
+          const publicData = await getPublicProfile(requestedProfileId);
+          setProfile(publicData);
+        }
+      } catch (err: any) {
+        Toast.show({
+          type: "error",
+          text1: "Failed to load profile",
+          text2: err.message,
+        });
+      }
+    };
+
+    fetchProfile();
+  }, [requestedProfileId, user]);
 
   const handleChoosePhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -61,15 +88,17 @@ export default function UserProfile() {
     }
   };
 
+  if (!profile) return null;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <EditableAvatar
-        uri={photoFile?.uri || user?.photo || "https://placehold.co/100x100"}
-        isEditing={isEditing}
-        onPress={handleChoosePhoto}
+        uri={photoFile?.uri || profile?.photo || "https://placehold.co/100x100"}
+        isEditing={isCurrentUser && isEditing}
+        onPress={isCurrentUser ? handleChoosePhoto : () => {}}
       />
 
-      {isEditing ? (
+      {isCurrentUser && isEditing ? (
         <>
           <EditableField
             placeholder="Full Name"
@@ -89,46 +118,54 @@ export default function UserProfile() {
         </>
       ) : (
         <>
-          <Text style={styles.name}>{user?.name}</Text>
-          <Text style={styles.detail}>{user?.email}</Text>
-          <Text style={styles.detail}>{user?.phone}</Text>
-          <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.editBtn}>
-            <Text style={styles.editText}>Edit Profile</Text>
-          </TouchableOpacity>
+          <Text style={styles.name}>{profile?.name}</Text>
+          {isCurrentUser && <Text style={styles.detail}>{profile?.email}</Text>}
+          {isCurrentUser && <Text style={styles.detail}>{profile?.phone}</Text>}
+          {isCurrentUser && (
+            <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.editBtn}>
+              <Text style={styles.editText}>Edit Profile</Text>
+            </TouchableOpacity>
+          )}
         </>
       )}
 
-      <DriverStatusCard
-        isDriver={!!user?.is_driver}
-        onStartVerification={() => setShowVerificationModal(true)}
-      />
-      <DriverVerificationModal
-        visible={showVerificationModal}
-        onClose={() => setShowVerificationModal(false)}
-        onUpload={async (file) => {
-        try {
-          await uploadLicense({
-            uri: file.uri,
-            name: file.fileName || "license.jpg",
-            type: file.type || "image/jpeg",
-          });
+      <ProfileRating profileId={profile.id} />
 
-          Toast.show({
-            type: "success",
-            text1: "License uploaded successfully",
-          });
+      {isCurrentUser && (
+        <>
+          <DriverStatusCard
+            isDriver={!!profile?.is_driver}
+            onStartVerification={() => setShowVerificationModal(true)}
+          />
+          <DriverVerificationModal
+            visible={showVerificationModal}
+            onClose={() => setShowVerificationModal(false)}
+            onUpload={async (file) => {
+              try {
+                await uploadLicense({
+                  uri: file.uri,
+                  name: file.fileName || "license.jpg",
+                  type: file.type || "image/jpeg",
+                });
 
-          await refreshUser();
-          setShowVerificationModal(false);
-        } catch (err: any) {
-          Toast.show({
-            type: "error",
-            text1: "Verification failed",
-            text2: err.message,
-          });
-        }
-      }}
-      />
+                Toast.show({
+                  type: "success",
+                  text1: "License uploaded successfully",
+                });
+
+                await refreshUser();
+                setShowVerificationModal(false);
+              } catch (err: any) {
+                Toast.show({
+                  type: "error",
+                  text1: "Verification failed",
+                  text2: err.message,
+                });
+              }
+            }}
+          />
+        </>
+      )}
     </ScrollView>
   );
 }

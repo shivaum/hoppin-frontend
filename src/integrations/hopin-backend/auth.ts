@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { User } from "../../types";
 import { authorizedFetch } from "./utils/authFetch";
 import { API_URL } from '@env';
+import { getCurrentUser } from "./profile";
 
 export async function signUpWithEmail(
   email: string,
@@ -44,6 +44,7 @@ export async function signUpWithEmail(
 }
 
 export async function signInWithEmail(email: string, password: string) {
+    console.log('calling');
     const res = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -67,35 +68,4 @@ export async function signOut() {
   await authorizedFetch(`${API_URL}/auth/logout`, {
     method: "POST",
   });
-}
-
-export async function getCurrentUser() {
-    const res = await authorizedFetch(`${API_URL}/user/profile`);
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData?.error || "User profile retrieval failed.");
-    }
-    return await res.json();
-  }
-  
-export async function updateProfile(data: Partial<User> | FormData) {
-  const isFormData = data instanceof FormData;
-
-  const headers: Record<string, string> = {};
-  if (!isFormData) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const res = await authorizedFetch(`${API_URL}/user/profile`, {
-    method: "PATCH",
-    headers,
-    body: isFormData ? data : JSON.stringify(data),
-  });
-
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData?.error || "Profile update failed");
-  }
-
-  return await res.json();
 }
