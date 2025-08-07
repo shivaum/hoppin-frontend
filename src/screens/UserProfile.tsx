@@ -14,6 +14,11 @@ import ProfileActions from "../components/profile/ProfileActions";
 import ProfileRating from "../components/profile/ProfileRating";
 import { getPublicProfile } from "../integrations/hopin-backend/profile";
 
+type User = {
+  name?: string;
+  phone?: string;
+};
+
 export default function UserProfile() {
   const route = useRoute<any>();
   const requestedProfileId = route.params?.profileId;
@@ -22,7 +27,7 @@ export default function UserProfile() {
   const isCurrentUser = !requestedProfileId || requestedProfileId === user?.id;
 
   const [profile, setProfile] = useState<any>(null);
-  const [editedUser, setEditedUser] = useState<any>(null);
+  const [editedUser, setEditedUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [photoFile, setPhotoFile] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -103,12 +108,12 @@ export default function UserProfile() {
           <EditableField
             placeholder="Full Name"
             value={editedUser?.name}
-            onChange={(text) => setEditedUser((u) => (u ? { ...u, name: text } : u))}
+            onChange={(text) => setEditedUser((u: User | null) => (u ? { ...u, name: text } : u))}
           />
           <EditableField
             placeholder="Phone"
             value={editedUser?.phone}
-            onChange={(text) => setEditedUser((u) => (u ? { ...u, phone: text } : u))}
+            onChange={(text) => setEditedUser((u: User | null) => (u ? { ...u, phone: text } : u))}
           />
           <ProfileActions
             loading={loading}
@@ -129,7 +134,10 @@ export default function UserProfile() {
         </>
       )}
 
-      <ProfileRating profileId={profile.id} />
+      <ProfileRating 
+        driverRating={profile.driverRating} 
+        riderRating={profile.riderRating} 
+      />
 
       {isCurrentUser && (
         <>

@@ -32,9 +32,9 @@ export default function TabNavigator() {
         headerTitleAlign: 'center',
       })}
     >
-      {/* <Tab.Screen name="Find Ride" component={SearchRides} />
+      <Tab.Screen name="Find Ride" component={SearchRides} />
       {user?.is_driver && <Tab.Screen name="Offer Ride" component={OfferRide} />}
-      <Tab.Screen name="My Rides" component={MyRides} /> */}
+      <Tab.Screen name="My Rides" component={MyRides} />
       <Tab.Screen name="Messages" component={Messages} />
       <Tab.Screen name="Profile" component={UserProfile} />
     </Tab.Navigator>

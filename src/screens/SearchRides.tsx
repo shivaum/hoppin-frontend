@@ -1,70 +1,44 @@
-// src/components/SearchRides.tsx
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, MapPin } from "lucide-react";
-import RideCard from "../components/searchRides/RideCard";
-import { useToast } from "@/hooks/use-toast";
+// src/screens/SearchRides.tsx
+import React, { useState, useEffect, useCallback } from 'react'
 import {
-  searchRides as backendSearchRides,
-  getMyRideRequests,
-} from "@/integrations/hopin-backend/rider";
-import { SearchRide, Ride } from "@/types";
-import { useAuth } from "@/contexts/AuthContext";
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  ActivityIndicator,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native'
+import { useAuth } from '../contexts/AuthContext'
+import { searchRides, getMyRideRequests } from '../integrations/hopin-backend/rider'
+import type { SearchRide as SearchRideType, Ride as RideType } from '../types'
+import RideCard from '../components/searchRides/RideCard'
 
-interface SearchRidesProps {
-  onRequestRide?: (rideId: string, message?: string) => void;
-}
+export default function SearchRides() {
+  const { user } = useAuth()
+  const [fromText, setFromText] = useState('')
+  const [toText, setToText] = useState('')
+  const [rides, setRides] = useState<RideType[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [myRequestsMap, setMyRequestsMap] = useState<Record<string, string>>({})
 
-export default function SearchRides({ onRequestRide }: SearchRidesProps) {
-  const { toast } = useToast();
-  const { user } = useAuth();
-
-  const [fromText, setFromText] = useState("");
-  const [toText, setToText] = useState("");
-  const [rides, setRides] = useState<Ride[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [myRequestsMap, setMyRequestsMap] = useState<Record<string, string>>({});
-
-  const fromRef = useRef<HTMLInputElement>(null);
-  const toRef = useRef<HTMLInputElement>(null);
-  const googleLoaded = !!window.google?.maps?.places;
-
-  // Autocomplete
-  useEffect(() => {
-    if (!googleLoaded) return;
-    const opts: google.maps.places.AutocompleteOptions = {
-      types: ["geocode"],
-      componentRestrictions: { country: "us" },
-    };
-    const attach = (ref: React.RefObject<HTMLInputElement>, setter: (v: string) => void) => {
-      if (!ref.current) return;
-      const ac = new google.maps.places.Autocomplete(ref.current, opts);
-      ac.addListener("place_changed", () => {
-        const p = ac.getPlace();
-        setter(p.formatted_address || p.name || "");
-      });
-    };
-    attach(fromRef, setFromText);
-    attach(toRef, setToText);
-  }, [googleLoaded]);
-
-  // Fetch my existing requests
+  // load existing requests
   useEffect(() => {
     getMyRideRequests()
       .then(reqs => {
-        const map: Record<string, string> = {};
-        reqs.forEach(r => { map[r.ride_id] = r.status; });
-        setMyRequestsMap(map);
+        const m: Record<string, string> = {}
+        reqs.forEach(r => { m[r.ride_id] = r.status })
+        setMyRequestsMap(m)
       })
-      .catch(e => console.error("Could not load my ride requests", e));
-  }, []);
+      .catch(console.warn)
+  }, [])
 
-  // Map backend SearchRide -> UI Ride
-  const mapToRide = useCallback((r: SearchRide): Ride => ({
+  const mapToRide = useCallback((r: SearchRideType): RideType => ({
     id: r.ride_id,
+    driverId: r.driver_id,
     startLocation: r.start_location,
     endLocation: r.end_location,
     departureTime: r.departure_time,
@@ -77,107 +51,149 @@ export default function SearchRides({ onRequestRide }: SearchRidesProps) {
       photo: r.driver.photo,
       rating: r.driver.rating,
       totalRides: r.driver.total_rides ?? 0,
-    },
-    driverId: r.driver_id,
-  } as Ride), []);
-
-  // Search handling
-  const handleSearch = useCallback(async () => {
-    if (!fromText || !toText) return;
-    setIsSearching(true);
-    setHasSearched(true);
-    try {
-      const results = await backendSearchRides(fromText, toText);
-      const mapped = results.map(mapToRide);
-      setRides(mapped);
-      if (!mapped.length) {
-        toast({ title: "No rides found", description: "Try different areas or times." });
-      }
-    } catch (err: any) {
-      toast({ title: "Search failed", description: err.message || "Please try again.", variant: "destructive" });
-    } finally {
-      setIsSearching(false);
     }
-  }, [fromText, toText, mapToRide, toast]);
+  }), [])
 
+  const handleSearch = useCallback(async () => {
+    if (!fromText.trim() || !toText.trim()) return
+    setHasSearched(true)
+    setIsSearching(true)
+    try {
+      const results = await searchRides(fromText, toText)
+      setRides(results.map(mapToRide))
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Search failed')
+    } finally {
+      setIsSearching(false)
+    }
+  }, [fromText, toText, mapToRide])
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            <span>Find a Ride</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!googleLoaded && <p className="text-sm text-muted-foreground">Loading location autocomplete…</p>}
-
-          <div className="relative">
-            <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="From (e.g., Cal Poly Campus)"
-              ref={fromRef}
-              value={fromText}
-              onChange={e => setFromText(e.target.value)}
-              className="pl-10"
-              disabled={!googleLoaded}
-            />
-          </div>
-
-          <div className="relative">
-            <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="To (e.g., SLO Airport)"
-              ref={toRef}
-              value={toText}
-              onChange={e => setToText(e.target.value)}
-              className="pl-10"
-              disabled={!googleLoaded}
-            />
-          </div>
-
-          <Button onClick={handleSearch} className="w-full" disabled={isSearching || !fromText || !toText}>
-            {isSearching ? "Searching..." : "Search Rides"}
-          </Button>
-        </CardContent>
-      </Card>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.select({ ios: 'padding', android: undefined })}
+    >
+      <View style={styles.form}>
+        <TextInput
+          style={styles.input}
+          placeholder="From (e.g., Cal Poly Campus)"
+          value={fromText}
+          onChangeText={setFromText}
+          returnKeyType="next"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="To (e.g., SLO Airport)"
+          value={toText}
+          onChangeText={setToText}
+          returnKeyType="search"
+          onSubmitEditing={handleSearch}
+        />
+        <TouchableOpacity
+          style={[styles.button, (!fromText || !toText || isSearching) && styles.buttonDisabled]}
+          onPress={handleSearch}
+          disabled={!fromText || !toText || isSearching}
+        >
+          {isSearching
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.buttonText}>Search Rides</Text>}
+        </TouchableOpacity>
+      </View>
 
       {isSearching && (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="mt-2 text-muted-foreground">Finding rides for you...</p>
-        </div>
+        <ActivityIndicator style={styles.loader} size="large" />
       )}
 
-      {rides.length > 0 && !isSearching && (
-        <div>
-          <h2 className="text-lg font-semibold mb-4">
-            Found {rides.length} ride{rides.length !== 1 ? "s" : ""}
-          </h2>
-          <div className="space-y-4">
-            {rides.map(r => (
+      {!isSearching && rides.length > 0 && (
+        <>
+          <Text style={styles.header}>Found {rides.length} ride{rides.length > 1 ? 's' : ''}</Text>
+          <FlatList
+            data={rides}
+            keyExtractor={r => r.id}
+            renderItem={({ item }) => (
               <RideCard
-                key={r.id}
-                ride={r}
-                onRequestRide={onRequestRide}
+                ride={item}
                 myProfileId={user?.id}
-                myRequestStatus={myRequestsMap[r.id] || null}
+                myRequestStatus={myRequestsMap[item.id] || null}
+                onRequestRide={() => {
+                  // reload requests map so UI updates after user requests
+                  getMyRideRequests()
+                    .then(reqs => {
+                      const m: Record<string,string> = {}
+                      reqs.forEach(r => { m[r.ride_id] = r.status })
+                      setMyRequestsMap(m)
+                    })
+                }}
               />
-            ))}
-          </div>
-        </div>
+            )}
+            contentContainerStyle={styles.list}
+          />
+        </>
       )}
 
-      {!isSearching && hasSearched && rides.length === 0 && fromText && toText && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">
-              No rides found for your search. Try adjusting your locations or check back later.
-            </p>
-          </CardContent>
-        </Card>
+      {!isSearching && hasSearched && rides.length === 0 && (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>
+            No rides found. Try different locations or times.
+          </Text>
+        </View>
       )}
-    </div>
-  );
+    </KeyboardAvoidingView>
+  )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+  },
+  form: {
+    marginBottom: 16,
+  },
+  input: {
+    height: 48,
+    borderColor: '#d1d5db',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: '#3b82f6',
+    height: 48,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#93c5fd',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loader: {
+    marginTop: 20,
+  },
+  header: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginVertical: 12,
+  },
+  list: {
+    paddingBottom: 16,
+  },
+  empty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#6b7280',
+    fontSize: 16,
+  },
+})

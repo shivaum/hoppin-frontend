@@ -85,7 +85,7 @@ export default function Messages() {
           style={styles.chatArea}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          {selectedConv ? (
+          {user && selectedConv ? (
             <>
               <ChatWindow user={user} conversation={selectedConv} messages={messages} />
               <MessageInput

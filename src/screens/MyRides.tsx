@@ -1,56 +1,70 @@
-import { useEffect, useMemo, useState } from "react";
-import { Car, Users } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { getMyDriverRides, acceptRideRequest, declineRideRequest } from "@/integrations/hopin-backend/driver";
-import { getMyRideRequests } from "@/integrations/hopin-backend/rider";
-import { RidesLoader } from "@/components/myRides/RidesLoader";
-import { DriverRidesTab } from "@/components/myRides/DriverRidesTab";
-import type { DriverRide, RideRequestItem } from "@/types";
-import { RiderRidesTab } from "@/components/myRides/RiderRidesTab";
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native'
+import { useAuth } from '../contexts/AuthContext'
+import { getMyDriverRides, acceptRideRequest, declineRideRequest } from '../integrations/hopin-backend/driver'
+import { getMyRideRequests } from '../integrations/hopin-backend/rider'
+import DriverRidesTab from '../components/myRides/DriverRidesTab'
+import RiderRidesTab from '../components/myRides/RiderRidesTab'
+import Toast from "react-native-toast-message";
+import type { DriverRide, RideRequestItem } from '../types'
+
+type Tab = 'driver' | 'rider'
 
 export default function MyRides() {
-  const { user } = useAuth();
-  const isDriver = !!user?.is_driver;
-  const { toast } = useToast();
+  const { user } = useAuth()
+  const isDriver = !!user?.is_driver
 
-  const [driverRides, setDriverRides] = useState<DriverRide[]>([]);
-  const [riderBookings, setRiderBookings] = useState<RideRequestItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<Tab>(isDriver ? 'driver' : 'rider')
+  const [driverRides, setDriverRides] = useState<DriverRide[]>([])
+  const [riderBookings, setRiderBookings] = useState<RideRequestItem[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
+    setActiveTab(isDriver ? 'driver' : 'rider')
+  }, [isDriver])
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      setLoading(true)
       try {
         const [driverData, riderData] = await Promise.all([
           isDriver ? getMyDriverRides() : Promise.resolve([]),
           getMyRideRequests(),
-        ]);
-        setDriverRides(driverData);
-        setRiderBookings(riderData);
-      } catch (err) {
-        console.error(err);
-        toast({
-          title: "Error Loading Rides",
-          description: "Could not fetch your rides or bookings.",
-          variant: "destructive",
-        });
+        ])
+        if (!mounted) return
+        setDriverRides(driverData)
+        setRiderBookings(riderData)
+      } catch (err: any) {
+        console.error(err)
+        Toast.show({
+          type: 'error',
+          text1: 'Error Loading Rides',
+          text2: 'Could not fetch your rides or bookings.',
+        })
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false)
       }
-    })();
-  }, [isDriver, toast]);
+    })()
+    return () => { mounted = false }
+  }, [isDriver])
 
   const handleRequestAction = async (
     requestId: string,
-    action: "accepted" | "declined"
+    action: 'accepted' | 'declined'
   ) => {
     try {
-      await (action === "accepted"
-        ? acceptRideRequest(requestId)
-        : declineRideRequest(requestId));
-
+      if (action === 'accepted') {
+        await acceptRideRequest(requestId)
+      } else {
+        await declineRideRequest(requestId)
+      }
       setDriverRides((prev) =>
         prev.map((ride) => ({
           ...ride,
@@ -58,53 +72,133 @@ export default function MyRides() {
             r.id === requestId ? { ...r, status: action } : r
           ),
         }))
-      );
-
-      toast({
-        title: `Request ${action}`,
-        description: `You have ${action} this request.`,
-      });
+      )
+      Toast.show({
+        type: 'success',
+        text1: `Request ${action}`,
+        text2: `You have ${action} this request.`,
+      })
     } catch {
-      toast({
-        title: "Update Failed",
-        description: `Couldn't ${action} the request.`,
-        variant: "destructive",
-      });
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: `Couldn't ${action} the request.`,
+      })
     }
-  };
+  }
 
   const orderedDriverRides = useMemo(
     () =>
       [...driverRides].sort(
-        (a, b) => new Date(a.departure_time).getTime() - new Date(b.departure_time).getTime()
+        (a, b) =>
+          new Date(a.departure_time).getTime() -
+          new Date(b.departure_time).getTime()
       ),
     [driverRides]
-  );
+  )
 
-  if (loading) return <RidesLoader />;
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={styles.loadingText}>Loading your rides…</Text>
+      </View>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-2">
-        <Car className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">My Rides</h1>
-      </div>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerIcon}>🚗</Text>
+        <Text style={styles.headerTitle}>My Rides</Text>
+      </View>
 
-      <Tabs defaultValue={isDriver ? "driver" : "rider"}>
-        <TabsList className={`grid w-full ${isDriver ? "grid-cols-2" : "grid-cols-1"}`}>
-          {isDriver && <TabsTrigger value="driver">As Driver</TabsTrigger>}
-          <TabsTrigger value="rider">As Rider</TabsTrigger>
-        </TabsList>
-
+      {/* Tab Switcher */}
+      <View style={styles.tabs}>
         {isDriver && (
-          <TabsContent value="driver">
-            <DriverRidesTab driverRides={orderedDriverRides} onAction={handleRequestAction} />
-          </TabsContent>
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              activeTab === 'driver' && styles.tabActive,
+            ]}
+            onPress={() => setActiveTab('driver')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'driver' && styles.tabTextActive,
+              ]}
+            >
+              As Driver
+            </Text>
+          </TouchableOpacity>
         )}
-        <TabsContent value="rider">
-          <RiderRidesTab rideRequests={riderBookings} />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'rider' && styles.tabActive,
+          ]}
+          onPress={() => setActiveTab('rider')}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'rider' && styles.tabTextActive,
+            ]}
+          >
+            As Rider
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      {activeTab === 'driver' && isDriver ? (
+        <DriverRidesTab
+          driverRides={orderedDriverRides}
+          onAction={handleRequestAction}
+        />
+      ) : (
+        <RiderRidesTab rideRequests={riderBookings} />
+      )}
+    </View>
+  )
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: { marginTop: 8, color: '#6B7280' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  headerIcon: { fontSize: 24, marginRight: 8 },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  tabActive: {
+    borderBottomWidth: 2,
+    borderColor: '#3b82f6',
+  },
+  tabText: { color: '#6B7280', fontSize: 16 },
+  tabTextActive: { color: '#111827', fontWeight: '600' },
+})
