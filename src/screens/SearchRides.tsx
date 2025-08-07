@@ -3,8 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react'
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   FlatList,
   ActivityIndicator,
   StyleSheet,
@@ -15,11 +13,19 @@ import { useAuth } from '../contexts/AuthContext'
 import { searchRides, getMyRideRequests } from '../integrations/hopin-backend/rider'
 import type { SearchRide as SearchRideType, Ride as RideType } from '../types'
 import RideCard from '../components/searchRides/RideCard'
+import LocationInput, { LatLng } from '../components/offerRides/LocationInput'
+import SubmitButton from '../components/offerRides/SubmitButton'
+import Constants from 'expo-constants'
 
 export default function SearchRides() {
   const { user } = useAuth()
+  const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey as string
+
   const [fromText, setFromText] = useState('')
   const [toText, setToText] = useState('')
+  const [fromCoords, setFromCoords] = useState<LatLng>({ lat: 0, lng: 0 })
+  const [toCoords, setToCoords] = useState<LatLng>({ lat: 0, lng: 0 })
+
   const [rides, setRides] = useState<RideType[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
@@ -29,7 +35,7 @@ export default function SearchRides() {
   useEffect(() => {
     getMyRideRequests()
       .then(reqs => {
-        const m: Record<string, string> = {}
+        const m: Record<string,string> = {}
         reqs.forEach(r => { m[r.ride_id] = r.status })
         setMyRequestsMap(m)
       })
@@ -69,45 +75,57 @@ export default function SearchRides() {
     }
   }, [fromText, toText, mapToRide])
 
+  const reloadRequests = () =>
+    getMyRideRequests()
+      .then(reqs => {
+        const m: Record<string,string> = {}
+        reqs.forEach(r => { m[r.ride_id] = r.status })
+        setMyRequestsMap(m)
+      })
+      .catch(console.warn)
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
       <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="From (e.g., Cal Poly Campus)"
+        <LocationInput
+          ref={null}
+          label="From"
+          apiKey={apiKey}
           value={fromText}
-          onChangeText={setFromText}
-          returnKeyType="next"
+          onChange={setFromText}
+          onSelect={(loc, coords) => {
+            setFromText(loc)
+            setFromCoords(coords)
+          }}
         />
-        <TextInput
-          style={styles.input}
-          placeholder="To (e.g., SLO Airport)"
+        <LocationInput
+          ref={null}
+          label="To"
+          apiKey={apiKey}
           value={toText}
-          onChangeText={setToText}
-          returnKeyType="search"
-          onSubmitEditing={handleSearch}
+          onChange={setToText}
+          onSelect={(loc, coords) => {
+            setToText(loc)
+            setToCoords(coords)
+          }}
         />
-        <TouchableOpacity
-          style={[styles.button, (!fromText || !toText || isSearching) && styles.buttonDisabled]}
+        <SubmitButton
+          title={isSearching ? 'Searching…' : 'Search Rides'}
           onPress={handleSearch}
-          disabled={!fromText || !toText || isSearching}
-        >
-          {isSearching
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.buttonText}>Search Rides</Text>}
-        </TouchableOpacity>
+          disabled={!fromText.trim() || !toText.trim() || isSearching}
+        />
       </View>
 
-      {isSearching && (
-        <ActivityIndicator style={styles.loader} size="large" />
-      )}
+      {isSearching && <ActivityIndicator style={styles.loader} size="large" />}
 
       {!isSearching && rides.length > 0 && (
         <>
-          <Text style={styles.header}>Found {rides.length} ride{rides.length > 1 ? 's' : ''}</Text>
+          <Text style={styles.header}>
+            Found {rides.length} ride{rides.length > 1 ? 's' : ''}
+          </Text>
           <FlatList
             data={rides}
             keyExtractor={r => r.id}
@@ -116,15 +134,7 @@ export default function SearchRides() {
                 ride={item}
                 myProfileId={user?.id}
                 myRequestStatus={myRequestsMap[item.id] || null}
-                onRequestRide={() => {
-                  // reload requests map so UI updates after user requests
-                  getMyRideRequests()
-                    .then(reqs => {
-                      const m: Record<string,string> = {}
-                      reqs.forEach(r => { m[r.ride_id] = r.status })
-                      setMyRequestsMap(m)
-                    })
-                }}
+                onRequestRide={reloadRequests}
               />
             )}
             contentContainerStyle={styles.list}
@@ -149,44 +159,14 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#f9fafb',
   },
-  form: {
-    marginBottom: 16,
-  },
-  input: {
-    height: 48,
-    borderColor: '#d1d5db',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-    marginBottom: 12,
-  },
-  button: {
-    backgroundColor: '#3b82f6',
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    backgroundColor: '#93c5fd',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loader: {
-    marginTop: 20,
-  },
+  form: { marginBottom: 16 },
+  loader: { marginTop: 20 },
   header: {
     fontSize: 18,
     fontWeight: '600',
     marginVertical: 12,
   },
-  list: {
-    paddingBottom: 16,
-  },
+  list: { paddingBottom: 16 },
   empty: {
     flex: 1,
     justifyContent: 'center',

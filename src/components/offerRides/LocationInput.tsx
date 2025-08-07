@@ -11,6 +11,8 @@ type Props = {
   apiKey: string;
 };
 
+export type LatLng = { lat: number; lng: number; };
+
 export default forwardRef<any, Props>(function LocationInput(
   { label, value, onChange, onSelect, apiKey },
   ref

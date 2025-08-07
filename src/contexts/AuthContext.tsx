@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  getCurrentUser,
   signInWithEmail,
   signUpWithEmail,
   signOut,
-  updateProfile,
 } from "../integrations/hopin-backend/auth";
+import {
+  getCurrentUser,
+  updateProfile
+} from "../integrations/hopin-backend/profile"
 import type { User } from "../types";
 
 interface AuthContextType {
