@@ -8,6 +8,7 @@ import OfferRide from '../screens/OfferRide';
 import MyRides from '../screens/MyRides';
 import Messages from '../screens/Messages';
 import UserProfile from '../screens/UserProfile';
+import MapPreviewScreen from '../screens/MapPreviewScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -37,6 +38,7 @@ export default function TabNavigator() {
       <Tab.Screen name="My Rides" component={MyRides} />
       <Tab.Screen name="Messages" component={Messages} />
       <Tab.Screen name="Profile" component={UserProfile} />
+      <Tab.Screen name="Map" component={MapPreviewScreen} />
     </Tab.Navigator>
   );
 }

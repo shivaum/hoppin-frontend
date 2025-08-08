@@ -23,7 +23,7 @@ export default function UserProfile() {
   const route = useRoute<any>();
   const requestedProfileId = route.params?.profileId;
 
-  const { user, updateUserProfile, refreshUser } = useAuth();
+  const { user, updateUserProfile, refreshUser, logout } = useAuth(); // make sure signOut exists
   const isCurrentUser = !requestedProfileId || requestedProfileId === user?.id;
 
   const [profile, setProfile] = useState<any>(null);
@@ -91,6 +91,10 @@ export default function UserProfile() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await logout();
   };
 
   if (!profile) return null;
@@ -172,6 +176,11 @@ export default function UserProfile() {
               }
             }}
           />
+
+          {/* Logout button */}
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Log Out</Text>
+          </TouchableOpacity>
         </>
       )}
     </ScrollView>
@@ -203,5 +212,17 @@ const styles = StyleSheet.create({
   editText: {
     color: "white",
     fontWeight: "bold",
+  },
+  logoutBtn: {
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: "#FF3B30",
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });

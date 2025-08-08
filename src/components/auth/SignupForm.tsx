@@ -12,7 +12,7 @@ import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Toast from "react-native-toast-message";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../contexts/AuthContext";
 import { RootStackParamList } from "../../navigation/types";
@@ -85,18 +85,15 @@ export default function SignupForm() {
   const onSubmit = async (data: SignupFormValues) => {
     try {
       await signUp(data.email, data.password, data.name, data.phone, data.photo);
-      Toast.show({
-        type: "success",
-        text1: "Account created!",
-        text2: "Welcome to Hopin SLO",
-      });
-      navigation.replace("Main");
+      Toast.show({ type: 'success', text1: 'Account created!', text2: 'Welcome to Hopin SLO' });
+      navigation.getParent()?.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Onboarding' }],
+        })
+      );
     } catch (error: any) {
-      Toast.show({
-        type: "error",
-        text1: "Signup failed",
-        text2: error.message || "Try again with different credentials",
-      });
+      Toast.show({ type: 'error', text1: 'Signup failed', text2: error?.message ?? 'Try again' });
     }
   };
 

@@ -10,6 +10,7 @@ export interface User {
   total_rides: number;
   is_driver: boolean;
   phone?: string;
+  is_onboarded?: boolean;
 }
 
 

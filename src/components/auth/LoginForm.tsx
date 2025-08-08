@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Toast from "react-native-toast-message";
 import { useAuth } from "../../contexts/AuthContext";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import { RootStackParamList } from "../../navigation/types";
 import { StackNavigationProp } from "@react-navigation/stack";
 
@@ -34,7 +34,12 @@ export default function LoginForm() {
     try {
       await signIn(data.email, data.password);
       Toast.show({ type: "success", text1: "Login successful", text2: "Welcome back to Hopin SLO" });
-      navigation.replace("Main");
+      navigation.getParent()?.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Main' }],
+              })
+            );
     } catch (error: any) {
       Toast.show({
         type: "error",

@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { View, Text, Image, StyleSheet, TouchableOpacity, Button } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
+import { CommonActions, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../../navigation/types";
+import { useAuth } from "../../contexts/AuthContext";
 
-interface WelcomeScreenProps {
-  onGetStarted: () => void;
-}
-
-export default function WelcomeScreen({ onGetStarted }: WelcomeScreenProps) {
+export default function WelcomeScreen() {
   const [currentFeature, setCurrentFeature] = useState(0);
+  const { markOnboarded } = useAuth();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
 const features = [
   {
@@ -31,6 +33,19 @@ const features = [
     icon: <Ionicons name="shield-checkmark-outline" size={24} color="black" />
   }
 ];
+
+
+
+const onPressGetStarted = async () => {
+  await markOnboarded();
+  const rootNav = nav.getParent()?.getParent(); // child -> Onboarding -> Root
+  rootNav?.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [{ name: 'Main' as never }],
+    })
+  );
+};
 
   return (
     <View style={styles.container}>
@@ -68,7 +83,7 @@ const features = [
       </View>
 
       <View style={styles.ctaContainer}>
-        <Button onPress={onGetStarted} title="Get Started" color="#007bff" />
+        <Button onPress={onPressGetStarted} title="Get Started" color="#007bff" />
         <Text style={styles.ctaSubtitle}>
           Join the Cal Poly rideshare community today
         </Text>

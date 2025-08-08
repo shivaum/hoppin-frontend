@@ -8,22 +8,34 @@ import AuthForm from "./screens/AuthForm";
 import Toast from "react-native-toast-message";
 import TabNavigator from "./navigation/TabNavigator";
 import type { RootStackParamList } from "./navigation/types";
+import OnboardingStack from "./navigation/OnboardingStack";
+import Splash from "./screens/Splash";
 
 // Lazy screen rendering logic
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function AppNavigator() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName={user ? "Main" : "Auth"}
-        screenOptions={{ headerShown: false }}
-      >
-        <Stack.Screen name="Auth" component={AuthForm} />
-        <Stack.Screen name="Main" component={TabNavigator} />
-      </Stack.Navigator>
+      {(authLoading) ? (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Splash" component={Splash} />
+        </Stack.Navigator>
+      ) : !user ? (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Auth" component={AuthForm} />
+        </Stack.Navigator>
+      ) : !user.is_onboarded ? (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Onboarding" component={OnboardingStack} />
+        </Stack.Navigator>
+      ) : (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Main" component={TabNavigator} />
+        </Stack.Navigator>
+      )}
     </NavigationContainer>
   );
 }

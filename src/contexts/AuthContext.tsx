@@ -25,6 +25,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUserProfile: (data: Partial<User> | FormData) => Promise<void>;
   refreshUser: () => Promise<void>;
+  markOnboarded: () => Promise<void>;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -36,8 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function loadUser() {
       try {
         refreshUser();
-      } catch {
-        setUser(null);
+      } catch (err) {
+        console.warn("Failed to refresh user:", err);
+        await logout();
       } finally {
         setLoading(false);
       }
@@ -73,9 +75,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const latest = await getCurrentUser();
     setUser(latest);
   };
+
+  const markOnboarded = async () => {
+    // no local storage—write to server then refresh
+    await updateUserProfile?.({ is_onboarded: true });
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, signIn, signUp, logout, updateUserProfile, refreshUser }}
+      value={{ user, loading, signIn, signUp, logout, updateUserProfile, refreshUser, markOnboarded }}
     >
       {children}
     </AuthContext.Provider>
