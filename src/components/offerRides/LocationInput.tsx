@@ -23,17 +23,22 @@ export default forwardRef<any, Props>(function LocationInput(
       <GooglePlacesAutocomplete
         ref={ref}
         placeholder={label}
+        minLength={2}
+        debounce={250}
         fetchDetails
+        GooglePlacesDetailsQuery={{ fields: 'geometry' }}
+        query={{ key: apiKey, language: 'en' }}
         textInputProps={{ value, onChangeText: onChange }}
         onPress={(data, details) => {
+          const loc = details?.geometry?.location;
           onSelect(
-            data.description,
-            details?.geometry?.location
-              ? { lat: details.geometry.location.lat, lng: details.geometry.location.lng }
-              : { lat: 0, lng: 0 }
+            data.description ?? data.structured_formatting?.main_text ?? '',
+            loc ? { lat: loc.lat, lng: loc.lng } : { lat: 0, lng: 0 }
           );
         }}
-        query={{ key: apiKey, language: 'en' }}
+        onFail={(e) => console.log('Places error:', e)}
+        onNotFound={() => console.log('No results')}
+        enablePoweredByContainer={false}
         predefinedPlaces={[]}                   
         predefinedPlacesAlwaysVisible={false}
         styles={{
