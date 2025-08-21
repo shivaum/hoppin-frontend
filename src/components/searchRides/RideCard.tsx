@@ -1,23 +1,28 @@
 // src/components/RideCard.tsx
-import React, { useState } from 'react'
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
-} from 'react-native'
-import type { Ride } from '../../types'
-import { Ionicons } from '@expo/vector-icons'
-import Toast from 'react-native-toast-message'
-import RequestMessageModal from './RideRequestModal'
-import { requestRide } from '../../integrations/hopin-backend/rider'
+} from 'react-native';
+import type { Ride } from '../../types';
+import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
+import RequestMessageModal from './RideRequestModal';
+import { requestRide } from '../../integrations/hopin-backend/rider';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MainStackParamList } from '../../navigation/types';
+
+type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
 
 interface RideCardProps {
-  ride: Ride
-  myProfileId?: string
-  myRequestStatus?: string | null
-  onRequestRide?: (rideId: string, message?: string) => void
+  ride: Ride;
+  myProfileId?: string;
+  myRequestStatus?: string | null;
+  onRequestRide?: (rideId: string, message?: string) => void;
 }
 
 export default function RideCard({
@@ -26,121 +31,142 @@ export default function RideCard({
   myRequestStatus = null,
   onRequestRide,
 }: RideCardProps) {
-  const driverId = ride.driverId
-  const isOwn = !!myProfileId && myProfileId === driverId
-  const hasRequested = !!myRequestStatus
-  const canRequest =
-    !isOwn &&
-    !hasRequested &&
-    ride.availableSeats > 0 &&
-    ride.status === 'available'
+  const navigation = useNavigation<Nav>();
 
-  const [modalVisible, setModalVisible] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const isOwn = !!myProfileId && myProfileId === ride.driverId;
+  const hasRequested = !!myRequestStatus;
+  const canRequest =
+    !isOwn && !hasRequested && ride.availableSeats > 0 && ride.status === 'available';
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' })
+    new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
   const fmtTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Narrow status to the allowed union for RideDetails
+  const detailsStatus: 'pending' | 'accepted' | 'declined' | 'available' =
+    (['pending', 'accepted', 'declined', 'available'] as const).includes(
+      ride.status as any
+    )
+      ? (ride.status as any)
+      : 'available';
+
+  const openDetails = () => {
+    navigation.navigate('RideDetails', {
+      mode: 'search',
+      rideId: ride.id,
+      // snake_case display fields supported by RideDetails
+      start_location: ride.startLocation,
+      end_location: ride.endLocation,
+      departure_time: ride.departureTime,
+      price_per_seat: ride.pricePerSeat,
+      available_seats: ride.availableSeats,
+      driver_name: ride.driver.name,
+      status: detailsStatus,
+      // coords omitted; RideDetails tolerates absence
+    } as any);
+  };
 
   const handleConfirm = async (message: string) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      // call your backend
-      await requestRide({ ride_id: ride.id, message })
-      Toast.show({ type: 'success', text1: 'Request sent', text2: 'Driver will respond soon.' })
-
-      // notify parent to update UI if needed
-      onRequestRide?.(ride.id, message)
-
-      // close modal
-      setModalVisible(false)
+      await requestRide({ ride_id: ride.id, message });
+      Toast.show({
+        type: 'success',
+        text1: 'Request sent',
+        text2: 'Driver will respond soon.',
+      });
+      onRequestRide?.(ride.id, message);
+      setModalVisible(false);
     } catch (err: any) {
       Toast.show({
         type: 'error',
         text1: 'Request failed',
-        text2: err.message || 'Please try again.',
-      })
+        text2: err?.message || 'Please try again.',
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <View style={styles.card}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.driverInfo}>
-          {ride.driver.photo ? (
-            <Image source={{ uri: ride.driver.photo }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.fallback]}>
-              <Text style={styles.fallbackText}>{ride.driver.name.charAt(0)}</Text>
-            </View>
-          )}
-          <View style={{ marginLeft: 8 }}>
-            <Text style={styles.driverName}>{ride.driver.name}</Text>
-            <View style={styles.rating}>
-              <Ionicons name="star" size={14} color="#FACC15" />
-              <Text style={styles.ratingText}>{ride.driver.rating.toFixed(1)}</Text>
+      {/* Whole card opens details */}
+      <TouchableOpacity onPress={openDetails} activeOpacity={0.85}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.driverInfo}>
+            {ride.driver.photo ? (
+              <Image source={{ uri: ride.driver.photo }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.fallback]}>
+                <Text style={styles.fallbackText}>{ride.driver.name.charAt(0)}</Text>
+              </View>
+            )}
+            <View style={{ marginLeft: 8 }}>
+              <Text style={styles.driverName}>{ride.driver.name}</Text>
+              <View style={styles.rating}>
+                <Ionicons name="star" size={14} color="#FACC15" />
+                <Text style={styles.ratingText}>{ride.driver.rating.toFixed(1)}</Text>
+              </View>
             </View>
           </View>
+          <View style={styles.price}>
+            <Text style={styles.priceText}>${ride.pricePerSeat}</Text>
+            <Text style={styles.priceSub}>per seat</Text>
+          </View>
         </View>
-        <View style={styles.price}>
-          <Text style={styles.priceText}>${ride.pricePerSeat}</Text>
-          <Text style={styles.priceSub}>per seat</Text>
-        </View>
-      </View>
 
-      {/* Route */}
-      <View style={styles.route}>
-        <View style={styles.dot} />
-        <Text style={styles.location}>{ride.startLocation}</Text>
-      </View>
-      <View style={styles.line} />
-      <View style={styles.route}>
-        <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
-        <Text style={styles.location}>{ride.endLocation}</Text>
-      </View>
+        {/* Route */}
+        <View style={styles.route}>
+          <View style={styles.dot} />
+          <Text style={styles.location}>{ride.startLocation}</Text>
+        </View>
+        <View style={styles.line} />
+        <View style={styles.route}>
+          <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
+          <Text style={styles.location}>{ride.endLocation}</Text>
+        </View>
 
-      {/* Details */}
-      <View style={styles.details}>
-        <View style={styles.detailItem}>
-          <Ionicons name="time" size={14} color="#6B7280" />
-          <Text style={styles.detailText}>
-            {fmtDate(ride.departureTime)} at {fmtTime(ride.departureTime)}
-          </Text>
+        {/* Details */}
+        <View style={styles.details}>
+          <View style={styles.detailItem}>
+            <Ionicons name="time" size={14} color="#6B7280" />
+            <Text style={styles.detailText}>
+              {fmtDate(ride.departureTime)} at {fmtTime(ride.departureTime)}
+            </Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Ionicons name="people" size={14} color="#6B7280" />
+            <Text style={styles.detailText}>{ride.availableSeats} seats</Text>
+          </View>
         </View>
-        <View style={styles.detailItem}>
-          <Ionicons name="people" size={14} color="#6B7280" />
-          <Text style={styles.detailText}>{ride.availableSeats} seats</Text>
-        </View>
-      </View>
 
-      {/* Notices */}
-      {isOwn && (
-        <View style={styles.notice}>
-          <Ionicons name="information-circle" size={16} color="#6B7280" />
-          <Text style={styles.noticeText}>This is your ride.</Text>
-        </View>
-      )}
-      {!isOwn && hasRequested && (
-        <View style={styles.notice}>
-          <Ionicons name="alert-circle" size={16} color="#6B7280" />
-          <Text style={styles.noticeText}>
-            Request{' '}
-            {myRequestStatus === 'accepted'
-              ? 'accepted'
-              : myRequestStatus === 'declined' || myRequestStatus === 'rejected'
-              ? 'declined'
-              : 'pending'}
-            .
-          </Text>
-        </View>
-      )}
+        {/* Notices */}
+        {isOwn && (
+          <View style={styles.notice}>
+            <Ionicons name="information-circle" size={16} color="#6B7280" />
+            <Text style={styles.noticeText}>This is your ride.</Text>
+          </View>
+        )}
+        {!isOwn && hasRequested && (
+          <View style={styles.notice}>
+            <Ionicons name="alert-circle" size={16} color="#6B7280" />
+            <Text style={styles.noticeText}>
+              Request{' '}
+              {myRequestStatus === 'accepted'
+                ? 'accepted'
+                : myRequestStatus === 'declined' || myRequestStatus === 'rejected'
+                ? 'declined'
+                : 'pending'}
+              .
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
 
       {/* Request Button */}
       {canRequest && (
@@ -162,7 +188,7 @@ export default function RideCard({
         loading={loading}
       />
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -212,4 +238,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
-})
+});

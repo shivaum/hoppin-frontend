@@ -9,6 +9,7 @@ import Toast from "react-native-toast-message";
 import TabNavigator from "./navigation/TabNavigator";
 import type { RootStackParamList } from "./navigation/types";
 import OnboardingStack from "./navigation/OnboardingStack";
+import MainStack from './navigation/MainStack';
 import Splash from "./screens/Splash";
 
 // Lazy screen rendering logic
@@ -33,7 +34,7 @@ function AppNavigator() {
         </Stack.Navigator>
       ) : (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Main" component={TabNavigator} />
+          <Stack.Screen name="MainStack" component={MainStack} />
         </Stack.Navigator>
       )}
     </NavigationContainer>
