@@ -61,8 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await signOut();
-    await AsyncStorage.removeItem("access_token");
+    await signOut(); // This now handles token removal internally
     setUser(null);
   };
 

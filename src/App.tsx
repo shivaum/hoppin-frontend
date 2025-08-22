@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AuthForm from "./screens/AuthForm";
+import Login from "./screens/Login";
+import Signup from "./screens/Signup";
 import Toast from "react-native-toast-message";
 import TabNavigator from "./navigation/TabNavigator";
 import type { RootStackParamList } from "./navigation/types";
@@ -27,6 +29,8 @@ function AppNavigator() {
       ) : !user ? (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Auth" component={AuthForm} />
+          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="Signup" component={Signup} />
         </Stack.Navigator>
       ) : !user.is_onboarded ? (
         <Stack.Navigator screenOptions={{ headerShown: false }}>

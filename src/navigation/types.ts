@@ -1,5 +1,7 @@
 export type RootStackParamList = {
   Auth: undefined;
+  Login: undefined;
+  Signup: undefined;
   Onboarding: undefined;
   Splash: undefined;
   MainStack: undefined; // contains tabs + RideDetails
@@ -22,10 +24,12 @@ export type RideDetailsParams = {
   requestId?: string;
 };
 
-// MainStack that hosts tabs + RideDetails
+// MainStack that hosts tabs + RideDetails + Driver Verification
 export type MainStackParamList = {
   Tabs: undefined;
   RideDetails: RideDetailsParams;
+  DriverVerificationRequirements: undefined;
+  DriverVerificationUpload: undefined;
 };
 
 // Bottom tabs

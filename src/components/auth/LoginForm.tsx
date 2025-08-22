@@ -37,7 +37,7 @@ export default function LoginForm() {
       navigation.getParent()?.dispatch(
               CommonActions.reset({
                 index: 0,
-                routes: [{ name: 'Main' }],
+                routes: [{ name: 'MainStack' }],
               })
             );
     } catch (error: any) {

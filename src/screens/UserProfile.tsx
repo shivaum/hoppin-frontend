@@ -1,44 +1,37 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from "react-native";
-import * as ImagePicker from "expo-image-picker";
+import { ScrollView, StyleSheet, View } from "react-native";
 import Toast from "react-native-toast-message";
-import { useRoute } from "@react-navigation/native";
+import { useRoute, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { useAuth } from "../contexts/AuthContext";
-import EditableAvatar from "../components/profile/EditableAvatar";
-import EditableField from "../components/profile/EditableField";
-import DriverStatusCard from "../components/profile/DriverStatusCard";
-import DriverVerificationModal from "../components/profile/DriverVerification/DriverVerificationModal";
-import { uploadLicense } from "../components/profile/DriverVerification/utils";
-import ProfileActions from "../components/profile/ProfileActions";
-import ProfileRating from "../components/profile/ProfileRating";
+import ProfileHeader from "../components/profile/ProfileHeader";
+import ProfileStats from "../components/profile/ProfileStats";
+import ProfileMenuList from "../components/profile/ProfileMenuList";
+import BecomeDriverButton from "../components/profile/BecomeDriverButton";
+import EditAccountModal, { EditAccountData } from "../components/profile/EditAccountModal";
 import { getPublicProfile } from "../integrations/hopin-backend/profile";
+import { colors } from "../constants/colors";
+import { MainStackParamList } from "../navigation/types";
 
-type User = {
-  name?: string;
-  phone?: string;
-};
+type UserProfileNavProp = NativeStackNavigationProp<MainStackParamList>;
 
 export default function UserProfile() {
   const route = useRoute<any>();
+  const navigation = useNavigation<UserProfileNavProp>();
   const requestedProfileId = route.params?.profileId;
 
-  const { user, updateUserProfile, refreshUser, logout } = useAuth(); // make sure signOut exists
+  const { user, updateUserProfile, refreshUser, logout } = useAuth();
   const isCurrentUser = !requestedProfileId || requestedProfileId === user?.id;
 
   const [profile, setProfile] = useState<any>(null);
-  const [editedUser, setEditedUser] = useState<User | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [photoFile, setPhotoFile] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         if (isCurrentUser) {
           setProfile(user);
-          setEditedUser(user);
         } else {
           const publicData = await getPublicProfile(requestedProfileId);
           setProfile(publicData);
@@ -55,174 +48,138 @@ export default function UserProfile() {
     fetchProfile();
   }, [requestedProfileId, user]);
 
-  const handleChoosePhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      setPhotoFile(result.assets[0]);
-    }
-  };
-
-  const handleSave = async () => {
-    setLoading(true);
+  const handleEditAccount = async (data: EditAccountData) => {
     try {
-      const formData = new FormData();
-      if (editedUser?.name) formData.append("name", editedUser.name);
-      if (editedUser?.phone) formData.append("phone", editedUser.phone);
-      if (photoFile) {
-        formData.append("photo", {
-          uri: photoFile.uri,
-          name: photoFile.fileName || "profile.jpg",
-          type: photoFile.type || "image/jpeg",
-        } as any);
-      }
-
-      await updateUserProfile(formData);
-      setIsEditing(false);
-      setPhotoFile(null);
-
+      const updateData = {
+        name: `${data.firstName} ${data.lastName}`,
+        phone: data.phone,
+        email: data.email,
+      };
+      
+      await updateUserProfile(updateData);
       Toast.show({ type: "success", text1: "Profile updated successfully" });
     } catch (err: any) {
       Toast.show({ type: "error", text1: "Update failed", text2: err.message });
-    } finally {
-      setLoading(false);
+      throw err; // Re-throw to keep modal open
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
+  const handleBecomeDriver = () => {
+    navigation.navigate('DriverVerificationRequirements');
   };
+
+  const menuItems = [
+    {
+      id: 'account',
+      title: 'Account details',
+      icon: 'account',
+      onPress: () => setShowEditModal(true),
+    },
+    {
+      id: 'reviews',
+      title: 'Reviews',
+      icon: 'reviews',
+      onPress: () => {
+        // Navigate to reviews screen
+        Toast.show({ type: 'info', text1: 'Reviews screen coming soon' });
+      },
+    },
+    {
+      id: 'payment',
+      title: 'Payment',
+      icon: 'payment',
+      onPress: () => {
+        // Navigate to payment screen
+        Toast.show({ type: 'info', text1: 'Payment screen coming soon' });
+      },
+    },
+    {
+      id: 'security',
+      title: 'Security',
+      icon: 'security',
+      onPress: () => {
+        // Navigate to security screen
+        Toast.show({ type: 'info', text1: 'Security screen coming soon' });
+      },
+    },
+    {
+      id: 'help',
+      title: 'Help',
+      icon: 'help',
+      onPress: () => {
+        // Navigate to help screen
+        Toast.show({ type: 'info', text1: 'Help screen coming soon' });
+      },
+    },
+  ];
 
   if (!profile) return null;
 
+  const firstName = profile?.name?.split(' ')[0] || '';
+  const lastName = profile?.name?.split(' ').slice(1).join(' ') || '';
+  const driverRating = profile?.driver_rating;
+  const riderRating = profile?.rider_rating;
+  const isDriver = !!profile?.is_driver;
+  const totalRides = profile?.total_rides || 0;
+  
+  // For demo purposes, split total rides between driver and rider
+  const asDriver = isDriver ? Math.floor(totalRides * 0.6) : 0;
+  const asRider = totalRides - asDriver;
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <EditableAvatar
-        uri={photoFile?.uri || profile?.photo || "https://placehold.co/100x100"}
-        isEditing={isCurrentUser && isEditing}
-        onPress={isCurrentUser ? handleChoosePhoto : () => {}}
-      />
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ProfileHeader
+          name={profile?.name || 'Unknown User'}
+          email={profile?.email || ''}
+          photo={profile?.photo}
+          driverRating={driverRating}
+          riderRating={riderRating}
+          isDriver={isDriver}
+          showVerificationBadge={isCurrentUser}
+        />
 
-      {isCurrentUser && isEditing ? (
-        <>
-          <EditableField
-            placeholder="Full Name"
-            value={editedUser?.name}
-            onChange={(text) => setEditedUser((u: User | null) => (u ? { ...u, name: text } : u))}
-          />
-          <EditableField
-            placeholder="Phone"
-            value={editedUser?.phone}
-            onChange={(text) => setEditedUser((u: User | null) => (u ? { ...u, phone: text } : u))}
-          />
-          <ProfileActions
-            loading={loading}
-            onCancel={() => setIsEditing(false)}
-            onSave={handleSave}
-          />
-        </>
-      ) : (
-        <>
-          <Text style={styles.name}>{profile?.name}</Text>
-          {isCurrentUser && <Text style={styles.detail}>{profile?.email}</Text>}
-          {isCurrentUser && <Text style={styles.detail}>{profile?.phone}</Text>}
-          {isCurrentUser && (
-            <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.editBtn}>
-              <Text style={styles.editText}>Edit Profile</Text>
-            </TouchableOpacity>
-          )}
-        </>
-      )}
+        <ProfileStats
+          totalRides={totalRides}
+          asDriver={asDriver}
+          asRider={asRider}
+          isCurrentUser={isCurrentUser}
+        />
 
-      <ProfileRating 
-        driverRating={profile.driverRating} 
-        riderRating={profile.riderRating} 
-      />
+        {isCurrentUser && !isDriver && (
+          <BecomeDriverButton onPress={handleBecomeDriver} />
+        )}
 
+        {isCurrentUser && (
+          <ProfileMenuList items={menuItems} />
+        )}
+      </ScrollView>
+
+      {/* Edit Account Modal */}
       {isCurrentUser && (
-        <>
-          <DriverStatusCard
-            isDriver={!!profile?.is_driver}
-            onStartVerification={() => setShowVerificationModal(true)}
-          />
-          <DriverVerificationModal
-            visible={showVerificationModal}
-            onClose={() => setShowVerificationModal(false)}
-            onUpload={async (file) => {
-              try {
-                await uploadLicense({
-                  uri: file.uri,
-                  name: file.fileName || "license.jpg",
-                  type: file.type || "image/jpeg",
-                });
-
-                Toast.show({
-                  type: "success",
-                  text1: "License uploaded successfully",
-                });
-
-                await refreshUser();
-                setShowVerificationModal(false);
-              } catch (err: any) {
-                Toast.show({
-                  type: "error",
-                  text1: "Verification failed",
-                  text2: err.message,
-                });
-              }
-            }}
-          />
-
-          {/* Logout button */}
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Log Out</Text>
-          </TouchableOpacity>
-        </>
+        <EditAccountModal
+          visible={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleEditAccount}
+          initialData={{
+            firstName,
+            lastName,
+            email: profile?.email || '',
+            phone: profile?.phone || '',
+            homeCity: 'Oklahoma City, Oklahoma', // Default for now
+          }}
+        />
       )}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "center",
-    padding: 24,
+    flex: 1,
+    backgroundColor: colors.neutral.gray50,
   },
-  name: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  detail: {
-    fontSize: 16,
-    color: "#555",
-    marginBottom: 4,
-  },
-  editBtn: {
-    marginTop: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: "#007AFF",
-    borderRadius: 8,
-  },
-  editText: {
-    color: "white",
-    fontWeight: "bold",
-  },
-  logoutBtn: {
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: "#FF3B30",
-    borderRadius: 8,
-  },
-  logoutText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
+  scrollView: {
+    flex: 1,
   },
 });

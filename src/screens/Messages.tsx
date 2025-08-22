@@ -1,122 +1,287 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   SafeAreaView,
-} from "react-native";
-import Toast from "react-native-toast-message";
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StatusBar,
+} from 'react-native';
+import Toast from 'react-native-toast-message';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { useAuth } from "../contexts/AuthContext";
-import { useSocket } from "../hooks/useSocket";
-import { useConversationSocket } from "../hooks/useConversationSocket";
-import ConversationList from "../components/messages/ConversationList";
-import ChatWindow from "../components/messages/ChatWindow";
-import MessageInput from "../components/messages/MessageInput";
-import { fetchMessagesWith, fetchUserConversations } from "../integrations/hopin-backend/messaging";
+import { useAuth } from '../contexts/AuthContext';
+import MessageListItem, { MessageConversation, MessageStatus } from '../components/messages/MessageListItem';
+import { fetchUserConversations } from '../integrations/hopin-backend/messaging';
+import { colors } from '../constants/colors';
+import { MainStackParamList } from '../navigation/types';
+
+type MessagesNavProp = NativeStackNavigationProp<MainStackParamList>;
+
+type FilterType = 'driver' | 'rider';
 
 export default function Messages() {
   const { user } = useAuth();
-  const socket = useSocket();
-
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [selectedConv, setSelectedConv] = useState<any | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [newMessage, setNewMessage] = useState("");
+  const navigation = useNavigation<MessagesNavProp>();
+  
+  const [conversations, setConversations] = useState<MessageConversation[]>([]);
+  const [filteredConversations, setFilteredConversations] = useState<MessageConversation[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('driver');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchUserConversations()
-      .then(setConversations)
-      .catch(() =>
-        Toast.show({
-          type: "error",
-          text1: "Error loading conversations",
-          text2: "Unable to load your conversations.",
-        })
-      );
+    loadConversations();
   }, []);
 
   useEffect(() => {
-    if (!selectedConv || !user) return;
+    filterConversations();
+  }, [conversations, activeFilter, searchQuery]);
 
-    fetchMessagesWith(selectedConv.otherUser.id, selectedConv.rideId)
-      .then(setMessages)
-      .catch(() =>
-        Toast.show({
-          type: "error",
-          text1: "Error loading messages",
-          text2: "Unable to load conversation history.",
-        })
-      );
-  }, [selectedConv, user]);
+  const loadConversations = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchUserConversations();
+      
+      // Transform the data to match our interface
+      // This is a mock transformation - you'll need to adjust based on your actual API response
+      const transformedConversations: MessageConversation[] = data.map((conv: any) => ({
+        id: conv.id || `${conv.rideId}-${conv.otherUser.id}`,
+        otherUser: conv.otherUser,
+        ride: {
+          id: conv.rideId,
+          departure_time: conv.ride?.departure_time || new Date().toISOString(),
+          start_location: conv.ride?.start_location || 'Unknown',
+          end_location: conv.ride?.end_location || 'Unknown',
+        },
+        lastMessage: {
+          content: conv.lastMessage?.content || 'No messages yet',
+          created_at: conv.lastMessage?.created_at || new Date().toISOString(),
+        },
+        status: conv.status || 'pending' as MessageStatus,
+        userRole: conv.userRole || (conv.ride?.driver_id === user?.id ? 'driver' : 'rider'),
+      }));
 
-  useConversationSocket({
-    socket,
-    rideId: selectedConv?.rideId ?? undefined,
-    userId: user?.id ?? undefined,
-    otherUserId: selectedConv?.otherUser?.id ?? undefined,
-    onReceive: (msg) => setMessages((prev) => [...prev, msg]),
-  });
-
-  const handleSend = () => {
-    if (!socket || !user || !selectedConv || !newMessage.trim()) return;
-
-    socket.emit("send_message", {
-      to: selectedConv.otherUser.id,
-      ride_id: selectedConv.rideId,
-      message: newMessage.trim(),
-    });
-    setNewMessage("");
+      setConversations(transformedConversations);
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error loading conversations',
+        text2: 'Unable to load your conversations.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const filterConversations = () => {
+    let filtered = [...conversations];
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(conv => 
+        conv.otherUser.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        conv.ride.start_location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        conv.ride.end_location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        conv.lastMessage.content.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Filter by driver/rider based on user's role in each conversation
+    filtered = filtered.filter(conv => conv.userRole === activeFilter);
+
+    setFilteredConversations(filtered);
+  };
+
+  const handleConversationPress = (conversation: MessageConversation) => {
+    // TODO: Navigate to chat screen
+    Toast.show({
+      type: 'info',
+      text1: 'Chat Feature',
+      text2: 'Opening chat functionality coming soon',
+    });
+  };
+
+  const handleRideHeaderPress = (conversation: MessageConversation) => {
+    // TODO: Navigate to ride details - placeholder for now
+    Toast.show({
+      type: 'info',
+      text1: 'Ride Details',
+      text2: `Navigate to ride ${conversation.ride.id} details`,
+    });
+    // navigation.navigate('RideDetails', { rideId: conversation.ride.id });
+  };
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyStateTitle}>No messages yet</Text>
+      <Text style={styles.emptyStateText}>
+        {activeFilter === 'driver' 
+          ? "Your driver conversations will appear here"
+          : "Your rider conversations will appear here"}
+      </Text>
+    </View>
+  );
+
+  const renderConversationItem = ({ item }: { item: MessageConversation }) => (
+    <MessageListItem
+      conversation={item}
+      onPress={() => handleConversationPress(item)}
+      onRideHeaderPress={() => handleRideHeaderPress(item)}
+    />
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.body}>
-        <View style={styles.sidebar}>
-          <ConversationList
-            conversations={conversations}
-            selected={selectedConv}
-            onSelect={setSelectedConv}
-          />
-        </View>
-        <KeyboardAvoidingView
-          style={styles.chatArea}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          {user && selectedConv ? (
-            <>
-              <ChatWindow user={user} conversation={selectedConv} messages={messages} />
-              <MessageInput
-                value={newMessage}
-                onChange={setNewMessage}
-                onSend={handleSend}
-              />
-            </>
-          ) : (
-            <View style={styles.empty}>
-              <Text style={{ color: "#999" }}>Select a conversation to start messaging.</Text>
-            </View>
-          )}
-        </KeyboardAvoidingView>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral.white} />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Messages</Text>
       </View>
-      <Toast />
+
+      {/* Filter Toggle */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            activeFilter === 'driver' && styles.filterButtonActive
+          ]}
+          onPress={() => setActiveFilter('driver')}
+        >
+          <Text style={styles.filterIcon}>🚗</Text>
+          <Text style={[
+            styles.filterText,
+            activeFilter === 'driver' && styles.filterTextActive
+          ]}>
+            I'm a driver
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            activeFilter === 'rider' && styles.filterButtonActive
+          ]}
+          onPress={() => setActiveFilter('rider')}
+        >
+          <Text style={styles.filterIcon}>👤</Text>
+          <Text style={[
+            styles.filterText,
+            activeFilter === 'rider' && styles.filterTextActive
+          ]}>
+            I'm a rider
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search messages"
+          placeholderTextColor={colors.neutral.gray400}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
+      {/* Conversations List */}
+      <FlatList
+        data={filteredConversations}
+        renderItem={renderConversationItem}
+        keyExtractor={(item) => item.id}
+        style={styles.conversationsList}
+        showsVerticalScrollIndicator={false}
+        refreshing={loading}
+        onRefresh={loadConversations}
+        ListEmptyComponent={renderEmptyState}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  header: {
-    fontSize: 24,
-    fontWeight: "bold",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+  container: {
+    flex: 1,
+    backgroundColor: colors.neutral.white,
   },
-  body: { flex: 1, flexDirection: "row" },
-  sidebar: { width: 100, borderRightWidth: 1, borderRightColor: "#ddd" },
-  chatArea: { flex: 1, justifyContent: "flex-end" },
-  empty: { flex: 1, justifyContent: "center", alignItems: "center" },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral.gray200,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.neutral.gray900,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: colors.neutral.gray100,
+    flex: 1,
+  },
+  filterButtonActive: {
+    backgroundColor: colors.neutral.gray900,
+  },
+  filterIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  filterText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.neutral.gray700,
+  },
+  filterTextActive: {
+    color: colors.neutral.white,
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  searchInput: {
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.neutral.gray100,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: colors.neutral.gray900,
+  },
+  conversationsList: {
+    flex: 1,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 60,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.neutral.gray900,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: colors.neutral.gray500,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
 });

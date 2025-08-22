@@ -3,6 +3,8 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
 import RideDetails from '../screens/RideDetails';
+import DriverVerificationRequirements from '../screens/DriverVerificationRequirements';
+import DriverVerificationUpload from '../screens/DriverVerificationUpload';
 import type { MainStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -18,6 +20,15 @@ export default function MainStack() {
         component={RideDetails}
         // If you want a header on the details screen, flip this:
         // options={{ headerShown: true, title: 'Ride Details' }}
+      />
+      {/* Driver Verification Screens */}
+      <Stack.Screen
+        name="DriverVerificationRequirements"
+        component={DriverVerificationRequirements}
+      />
+      <Stack.Screen
+        name="DriverVerificationUpload"
+        component={DriverVerificationUpload}
       />
     </Stack.Navigator>
   );

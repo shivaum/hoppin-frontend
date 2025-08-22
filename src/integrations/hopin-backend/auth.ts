@@ -65,7 +65,15 @@ export async function signInWithEmail(email: string, password: string) {
   }
 
 export async function signOut() {
-  await authorizedFetch(`${API_URL}/auth/logout`, {
-    method: "POST",
-  });
+  try {
+    await authorizedFetch(`${API_URL}/auth/logout`, {
+      method: "POST",
+    });
+  } catch (error) {
+    // Even if the server logout fails, we still want to clear local storage
+    console.warn("Server logout failed, but continuing with local logout:", error);
+  }
+  
+  // Always clear the token from local storage
+  await AsyncStorage.removeItem("access_token");
 }
