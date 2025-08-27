@@ -1,241 +1,167 @@
-// src/components/RideCard.tsx
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-} from 'react-native';
+// src/components/searchRides/RideCard.tsx
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import type { Ride } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
-import RequestMessageModal from './RideRequestModal';
-import { requestRide } from '../../integrations/hopin-backend/rider';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/types';
+import Toast from 'react-native-toast-message';
+import { requestRide } from '../../integrations/hopin-backend/rider';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
 
-interface RideCardProps {
+type Props = {
   ride: Ride;
   myProfileId?: string;
   myRequestStatus?: string | null;
   onRequestRide?: (rideId: string, message?: string) => void;
-}
+};
 
 export default function RideCard({
   ride,
   myProfileId,
   myRequestStatus = null,
   onRequestRide,
-}: RideCardProps) {
+}: Props) {
   const navigation = useNavigation<Nav>();
-
-  const isOwn = !!myProfileId && myProfileId === ride.driverId;
-  const hasRequested = !!myRequestStatus;
-  const canRequest =
-    !isOwn && !hasRequested && ride.availableSeats > 0 && ride.status === 'available';
-
-  const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
-  const fmtTime = (iso: string) =>
+  const isOwn = !!myProfileId && myProfileId === ride.driverId;
+
+  const fmtT = (iso: string) =>
     new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // Narrow status to the allowed union for RideDetails
+  const timePickup = useMemo(() => fmtT(ride.departureTime), [ride.departureTime]);
+
+  // limit status union for details page
   const detailsStatus: 'pending' | 'accepted' | 'declined' | 'available' =
-    (['pending', 'accepted', 'declined', 'available'] as const).includes(
-      ride.status as any
-    )
+    (['pending', 'accepted', 'declined', 'available'] as const).includes(ride.status as any)
       ? (ride.status as any)
       : 'available';
 
   const openDetails = () => {
     navigation.navigate('RideDetails', {
-      mode: 'search',
+      role: 'search',
       rideId: ride.id,
-      // snake_case display fields supported by RideDetails
       start_location: ride.startLocation,
       end_location: ride.endLocation,
       departure_time: ride.departureTime,
       price_per_seat: ride.pricePerSeat,
       available_seats: ride.availableSeats,
       driver_name: ride.driver.name,
+      driver_photo: ride.driver.photo,
+      driver_rating: ride.driver.rating,
       status: detailsStatus,
-      // coords omitted; RideDetails tolerates absence
     } as any);
   };
 
-  const handleConfirm = async (message: string) => {
-    setLoading(true);
+  const handleQuickRequest = async () => {
     try {
-      await requestRide({ ride_id: ride.id, message });
-      Toast.show({
-        type: 'success',
-        text1: 'Request sent',
-        text2: 'Driver will respond soon.',
-      });
-      onRequestRide?.(ride.id, message);
-      setModalVisible(false);
-    } catch (err: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Request failed',
-        text2: err?.message || 'Please try again.',
-      });
+      setLoading(true);
+      await requestRide({ ride_id: ride.id, message: 'Hey! Can I hoppin your ride?' });
+      Toast.show({ type: 'success', text1: 'Request sent', text2: 'Driver will respond soon.' });
+      onRequestRide?.(ride.id, 'Hey! Can I hoppin your ride?');
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Request failed', text2: e?.message || 'Try again.' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.card}>
-      {/* Whole card opens details */}
-      <TouchableOpacity onPress={openDetails} activeOpacity={0.85}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.driverInfo}>
-            {ride.driver.photo ? (
-              <Image source={{ uri: ride.driver.photo }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.fallback]}>
-                <Text style={styles.fallbackText}>{ride.driver.name.charAt(0)}</Text>
-              </View>
-            )}
-            <View style={{ marginLeft: 8 }}>
-              <Text style={styles.driverName}>{ride.driver.name}</Text>
-              <View style={styles.rating}>
-                <Ionicons name="star" size={14} color="#FACC15" />
-                <Text style={styles.ratingText}>{ride.driver.rating.toFixed(1)}</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.price}>
-            <Text style={styles.priceText}>${ride.pricePerSeat}</Text>
-            <Text style={styles.priceSub}>per seat</Text>
-          </View>
+    <TouchableOpacity activeOpacity={0.85} onPress={openDetails} style={s.card}>
+      {/* Left: labels/times */}
+      <View style={{ flex: 1 }}>
+        <View style={s.row}>
+          <View style={[s.dot, { backgroundColor: '#3B82F6' }]} />
+          <Text style={s.smallLabel}>Pick-up</Text>
+          <Text style={s.time}>{timePickup}</Text>
+        </View>
+        <View style={s.row}>
+          <View style={[s.dot, { backgroundColor: '#10B981' }]} />
+          <Text style={s.smallLabel}>Drop-off</Text>
+          <Text style={s.time}>—</Text>
         </View>
 
-        {/* Route */}
-        <View style={styles.route}>
-          <View style={styles.dot} />
-          <Text style={styles.location}>{ride.startLocation}</Text>
-        </View>
-        <View style={styles.line} />
-        <View style={styles.route}>
-          <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
-          <Text style={styles.location}>{ride.endLocation}</Text>
-        </View>
+        {/* Addresses */}
+        <Text numberOfLines={1} style={s.addr}>{ride.startLocation}</Text>
+        <View style={s.divider} />
+        <Text numberOfLines={1} style={s.addr}>{ride.endLocation}</Text>
+      </View>
 
-        {/* Details */}
-        <View style={styles.details}>
-          <View style={styles.detailItem}>
-            <Ionicons name="time" size={14} color="#6B7280" />
-            <Text style={styles.detailText}>
-              {fmtDate(ride.departureTime)} at {fmtTime(ride.departureTime)}
-            </Text>
-          </View>
-          <View style={styles.detailItem}>
-            <Ionicons name="people" size={14} color="#6B7280" />
-            <Text style={styles.detailText}>{ride.availableSeats} seats</Text>
-          </View>
+      {/* Right: seats & price */}
+      <View style={s.rightCol}>
+        <View style={s.seatsRow}>
+          <Ionicons name="people" size={14} color="#6B7280" />
+          <Text style={s.seatsTxt}>{ride.availableSeats}</Text>
         </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={s.price}>${ride.pricePerSeat}</Text>
+          <Text style={s.priceSub}>per seat</Text>
+        </View>
+      </View>
 
-        {/* Notices */}
-        {isOwn && (
-          <View style={styles.notice}>
-            <Ionicons name="information-circle" size={16} color="#6B7280" />
-            <Text style={styles.noticeText}>This is your ride.</Text>
-          </View>
-        )}
-        {!isOwn && hasRequested && (
-          <View style={styles.notice}>
-            <Ionicons name="alert-circle" size={16} color="#6B7280" />
-            <Text style={styles.noticeText}>
-              Request{' '}
-              {myRequestStatus === 'accepted'
-                ? 'accepted'
-                : myRequestStatus === 'declined' || myRequestStatus === 'rejected'
-                ? 'declined'
-                : 'pending'}
-              .
-            </Text>
-          </View>
-        )}
+      {/* (Optional) inline request button — keep hidden in the list; enable if you want
+      <TouchableOpacity
+        onPress={handleQuickRequest}
+        disabled={loading || isOwn || ride.availableSeats <= 0 || ride.status !== 'available'}
+        style={[s.req, (loading || isOwn || ride.availableSeats <= 0 || ride.status !== 'available') && { opacity: 0.5 }]}
+      >
+        <Ionicons name="chatbubble" size={14} color="#fff" />
+        <Text style={s.reqTxt}>Request</Text>
       </TouchableOpacity>
-
-      {/* Request Button */}
-      {canRequest && (
-        <TouchableOpacity
-          style={[styles.requestButton, loading && { opacity: 0.6 }]}
-          onPress={() => setModalVisible(true)}
-          disabled={loading}
-        >
-          <Ionicons name="chatbubble" size={16} color="#fff" />
-          <Text style={styles.requestButtonText}>Request Ride</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Message Modal */}
-      <RequestMessageModal
-        isOpen={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onConfirm={handleConfirm}
-        loading={loading}
-      />
-    </View>
+      */}
+    </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
+const purple = '#7C3AED';
+
+const s = StyleSheet.create({
   card: {
-    backgroundColor: '#FFF',
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     padding: 12,
     marginBottom: 12,
+    flexDirection: 'row',
+    gap: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 1,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between' },
-  driverInfo: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 48, height: 48, borderRadius: 24 },
-  fallback: { backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' },
-  fallbackText: { color: '#374151', fontSize: 18, fontWeight: '600' },
-  driverName: { fontSize: 16, fontWeight: '600' },
-  rating: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  ratingText: { marginLeft: 4, fontSize: 12, color: '#6B7280' },
-  price: { alignItems: 'flex-end' },
-  priceText: { fontSize: 18, fontWeight: '700', color: '#3B82F6' },
-  priceSub: { fontSize: 12, color: '#6B7280' },
-  route: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3B82F6' },
-  location: { marginLeft: 8, fontSize: 14, color: '#111827' },
-  line: { height: 1, backgroundColor: '#E5E7EB', marginLeft: 4, marginVertical: 4 },
-  details: { flexDirection: 'row', marginTop: 8 },
-  detailItem: { flexDirection: 'row', alignItems: 'center', marginRight: 16 },
-  detailText: { marginLeft: 4, fontSize: 12, color: '#6B7280' },
-  notice: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  noticeText: { marginLeft: 6, fontSize: 12, color: '#6B7280' },
-  requestButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  dot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+  smallLabel: { color: '#6B7280', fontSize: 12, marginRight: 6 },
+  time: { color: '#111827', fontSize: 12, fontWeight: '600' },
+
+  addr: { color: '#111827', marginTop: 2 },
+  divider: { height: 2, width: 2, backgroundColor: '#D1D5DB', marginVertical: 6, marginLeft: 3, borderRadius: 1 },
+
+  rightCol: { alignItems: 'flex-end', justifyContent: 'space-between' },
+  seatsRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  seatsTxt: { color: '#6B7280', fontSize: 12 },
+
+  price: { color: purple, fontWeight: '700' },
+  priceSub: { color: '#6B7280', fontSize: 12 },
+
+  req: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    height: 40,
+    borderRadius: 8,
     backgroundColor: '#3B82F6',
-    borderRadius: 6,
-    paddingVertical: 10,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
+    flexDirection: 'row',
+    gap: 6,
   },
-  requestButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
+  reqTxt: { color: '#fff', fontWeight: '700' },
 });

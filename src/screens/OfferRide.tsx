@@ -1,192 +1,317 @@
-import React, { useState, useRef } from 'react';
+// src/screens/OfferRide.tsx
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
+  TouchableOpacity,
+  Platform,
+  Alert,
 } from 'react-native';
-import Toast from 'react-native-toast-message';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import 'react-native-get-random-values';
-import { createRide } from '../integrations/hopin-backend/driver';
 
-import LocationInput from '../components/offerRides/LocationInput';
-import DateTimePickerRow from '../components/offerRides/DateTimePickerRow';
-import NumericInput from '../components/offerRides/NumericInput';
-import SubmitButton from '../components/offerRides/SubmitButton';
+import Map from '../components/map/Map';
+import LocationInput, { LatLng } from '../components/offerRides/LocationInput';
+import CalendarModal from '../components/searchRides/CalendarModal';
+import { createRide } from '../integrations/hopin-backend/driver';
+import type { MainStackParamList } from '../navigation/types';
+
+type Nav = NativeStackNavigationProp<MainStackParamList, any>;
 
 export default function OfferRide() {
+  const navigation = useNavigation<Nav>();
   const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey as string;
 
-  const now = new Date();
-  now.setMinutes(0, 0, 0);
-  const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
+  // Form state
+  const [pickupText, setPickupText] = useState('');
+  const [dropoffText, setDropoffText] = useState('');
+  const [pickup, setPickup] = useState<LatLng | null>(null);
+  const [dropoff, setDropoff] = useState<LatLng | null>(null);
 
-  const [startLocation, setStartLocation] = useState('');
-  const [endLocation, setEndLocation] = useState('');
-  const [startCoords, setStartCoords] = useState({ lat: 0, lng: 0 });
-  const [endCoords, setEndCoords] = useState({ lat: 0, lng: 0 });
+  const [dateISO, setDateISO] = useState<string | null>(null);
+  const [timeISO, setTimeISO] = useState<string | null>(null);
 
-  const [date, setDate] = useState(nextHour);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
 
-  const [availableSeats, setAvailableSeats] = useState('1');
-  const [pricePerSeat, setPricePerSeat] = useState('5.00');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const onChangeDate = (_: any, selected?: Date) => {
-    setShowDatePicker(false);
-    if (selected) {
-      const dt = new Date(selected);
-      dt.setHours(date.getHours(), date.getMinutes());
-      setDate(dt);
-    }
-  };
+  // Derived
+  const canSubmit = !!pickup && !!dropoff && !!dateISO && !!timeISO && !!pickupText && !!dropoffText;
 
-  const onChangeTime = (_: any, selected?: Date) => {
-    setShowTimePicker(false);
-    if (selected) {
-      const dt = new Date(date);
-      dt.setHours(selected.getHours(), selected.getMinutes());
-      setDate(dt);
-    }
+  const departureISO = useMemo(() => {
+    if (!dateISO || !timeISO) return null;
+    // Combine date + time (both YYYY-MM-DD and HH:mm in local)
+    const [y, m, d] = dateISO.split('-').map(Number);
+    const [hh, mm] = timeISO.split(':').map(Number);
+    const dt = new Date(y, (m - 1), d, hh, mm, 0, 0);
+    return dt.toISOString();
+  }, [dateISO, timeISO]);
+
+  // Readable labels
+  const dateLabel = useMemo(() => {
+    if (!dateISO) return 'Date';
+    const [y, m, d] = dateISO.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }, [dateISO]);
+
+  const timeLabel = useMemo(() => {
+    if (!timeISO) return 'Time';
+    const [hh, mm] = timeISO.split(':').map(Number);
+    const d = new Date();
+    d.setHours(hh, mm, 0, 0);
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }, [timeISO]);
+
+  // Simple time picker (cross-platform)
+  const openTimePicker = () => setShowTime(true);
+
+  const onPickTime = (h: number, m: number) => {
+    const h2 = String(h).padStart(2, '0');
+    const m2 = String(m).padStart(2, '0');
+    setTimeISO(`${h2}:${m2}`);
+    setShowTime(false);
   };
 
   const handleSubmit = async () => {
-    const seats = parseInt(availableSeats, 10);
-    if (isNaN(seats) || seats < 1 || seats > 7) {
-      Toast.show({ type: 'error', text1: 'Seats must be between 1 and 7' });
-      return;
-    }
-
-    const price = parseFloat(pricePerSeat);
-    if (
-      isNaN(price) ||
-      price < 0 ||
-      price > 100 ||
-      !/^\d+(\.\d{1,2})?$/.test(pricePerSeat)
-    ) {
-      Toast.show({ type: 'error', text1: 'Price must be 0–100, max two decimals' });
-      return;
-    }
-
-    if (!startLocation || !endLocation) {
-      Toast.show({ type: 'error', text1: 'Enter both pickup and destination' });
-      return;
-    }
-
-    setIsSubmitting(true);
+    if (!canSubmit || !pickup || !dropoff || !departureISO) return;
     try {
+      setSubmitting(true);
       await createRide({
-        startLocation,
-        endLocation,
-        departureTime: date.toISOString(),
-        availableSeats: seats,
-        pricePerSeat: price,
-        startLat: startCoords.lat,
-        startLng: startCoords.lng,
-        endLat: endCoords.lat,
-        endLng: endCoords.lng,
+        startLocation: pickupText,
+        endLocation: dropoffText,
+        departureTime: departureISO,
+        availableSeats: 1,            // default; you can add a seat input later
+        pricePerSeat: 5,              // default; add a price input later
+        startLat: pickup.lat,
+        startLng: pickup.lng,
+        endLat: dropoff.lat,
+        endLng: dropoff.lng,
         status: 'available',
       });
-      Toast.show({
-        type: 'success',
-        text1: 'Ride offered!',
-        text2: 'Your ride has been posted.',
-      });
-      // reset form
-      setStartLocation('');
-      setEndLocation('');
-      setStartCoords({ lat: 0, lng: 0 });
-      setEndCoords({ lat: 0, lng: 0 });
-      setDate(nextHour);
-      setAvailableSeats('1');
-      setPricePerSeat('5.00');
-    } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Error', text2: err.message || 'Try again.' });
+      Alert.alert('Ride created', 'Your ride is now available.');
+      navigation.goBack();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Could not create ride');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  const startRef = useRef<any>(null);
-  const endRef = useRef<any>(null);
+  // For Map: show route when both set; otherwise show one pin or fallback
+  const haveStart = !!pickup && Number.isFinite(pickup.lat) && Number.isFinite(pickup.lng);
+  const haveEnd   = !!dropoff   && Number.isFinite(dropoff.lat)   && Number.isFinite(dropoff.lng);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.select({ ios: 'padding', android: undefined })}
-    >
-      <View style={styles.container}>
-        <Text style={styles.heading}>Offer a Ride</Text>
-
-        <LocationInput
-          ref={startRef}
-          label="Pickup"
-          apiKey={apiKey}
-          value={startLocation}
-          onChange={setStartLocation}
-          onSelect={(loc, coords) => {
-            setStartLocation(loc);
-            setStartCoords(coords);
-          }}
-        />
-
-        <LocationInput
-          ref={endRef}
-          label="Destination"
-          apiKey={apiKey}
-          value={endLocation}
-          onChange={setEndLocation}
-          onSelect={(loc, coords) => {
-            setEndLocation(loc);
-            setEndCoords(coords);
-          }}
-        />
-
-        <DateTimePickerRow
-          date={date}
-          showDate={showDatePicker}
-          showTime={showTimePicker}
-          onDatePress={() => setShowDatePicker(true)}
-          onTimePress={() => setShowTimePicker(true)}
-          onChangeDate={onChangeDate}
-          onChangeTime={onChangeTime}
-        />
-
-        <NumericInput
-          label="Seats"
-          value={availableSeats}
-          keyboardType="number-pad"
-          onChange={setAvailableSeats}
-          maxLength={1}
-        />
-
-        <NumericInput
-          label="Price ($)"
-          value={pricePerSeat}
-          keyboardType="decimal-pad"
-          onChange={setPricePerSeat}
-        />
-
-        <SubmitButton
-          title={isSubmitting ? 'Posting…' : 'Offer Ride'}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        />
+    <View style={styles.root}>
+      {/* Map background */}
+      <View style={styles.mapWrap}>
+        {haveStart || haveEnd ? (
+          // Your Map component should accept optional markers
+          <Map
+            start={haveStart ? { latitude: pickup!.lat, longitude: pickup!.lng } : { latitude: 0, longitude: 0 }}
+            end={haveEnd ? { latitude: dropoff!.lat, longitude: dropoff!.lng } : { latitude: 0, longitude: 0 }}
+          />
+        ) : (
+          // fallback region / placeholder
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6' }}>
+            <Text style={{ color: '#6B7280' }}>Add a pick-up or drop-off to preview</Text>
+          </View>
+        )}
       </View>
-    </KeyboardAvoidingView>
+
+      {/* Back */}
+      <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
+        <Ionicons name="chevron-back" size={24} color="#111827" />
+      </TouchableOpacity>
+
+      {/* Bottom sheet card */}
+      <View style={styles.sheet}>
+        <Text style={styles.title}>Offer a ride</Text>
+        <Text style={styles.subtitle}>Enter the details of your ride</Text>
+
+        {/* Pick-up */}
+        <Text style={styles.label}>Pick up</Text>
+        <View style={styles.inputWrap}>
+          <LocationInput
+            ref={null}
+            apiKey={apiKey}
+            value={pickupText}
+            onChange={setPickupText}
+            onSelect={(addr, coords) => {
+              setPickupText(addr);
+              setPickup(coords);
+            }}
+          />
+        </View>
+
+        {/* Drop-off */}
+        <Text style={[styles.label, { marginTop: 10 }]}>Drop off</Text>
+        <View style={styles.inputWrap}>
+          <LocationInput
+            ref={null}
+            apiKey={apiKey}
+            value={dropoffText}
+            onChange={setDropoffText}
+            onSelect={(addr, coords) => {
+              setDropoffText(addr);
+              setDropoff(coords);
+            }}
+          />
+        </View>
+
+        {/* Date / Time */}
+        <Text style={[styles.label, { marginTop: 10 }]}>Date</Text>
+        <TouchableOpacity style={styles.fakeInput} onPress={() => setShowDate(true)}>
+          <Text style={[styles.fakeInputText, !dateISO && styles.placeholder]}>{dateLabel}</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.label, { marginTop: 10 }]}>Time</Text>
+        <TouchableOpacity style={styles.fakeInput} onPress={openTimePicker}>
+          <Text style={[styles.fakeInputText, !timeISO && styles.placeholder]}>{timeLabel}</Text>
+        </TouchableOpacity>
+
+        {/* CTA */}
+        <TouchableOpacity
+          style={[styles.cta, (!canSubmit || submitting) && { opacity: 0.5 }]}
+          disabled={!canSubmit || submitting}
+          onPress={handleSubmit}
+        >
+          <Text style={styles.ctaText}>{submitting ? 'Posting…' : 'Offer ride'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Date modal */}
+      <CalendarModal
+        visible={showDate}
+        initialDate={dateISO || undefined}
+        onClose={() => setShowDate(false)}
+        onConfirm={(iso) => {
+          setDateISO(iso);
+          setShowDate(false);
+        }}
+      />
+
+      {/* Time picker (very light custom) */}
+      {showTime && (
+        <View style={styles.timeOverlay}>
+          <View style={styles.timeSheet}>
+            <Text style={styles.timeTitle}>Select time</Text>
+            <View style={styles.timeRow}>
+              {['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'].map(t => (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.timeChip, timeISO === t && styles.timeChipActive]}
+                  onPress={() => onPickTime(Number(t.split(':')[0]), Number(t.split(':')[1]))}
+                >
+                  <Text style={[styles.timeChipText, timeISO === t && styles.timeChipTextActive]}>
+                    {new Date(0,0,0,Number(t.split(':')[0]),Number(t.split(':')[1]))
+                      .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.timeCancel} onPress={() => setShowTime(false)}>
+              <Text style={styles.timeCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  heading: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 16,
-    textAlign: 'center',
+  root: { flex: 1, backgroundColor: '#fff' },
+  mapWrap: { flex: 1 },
+  mapFallback: { flex: 1, backgroundColor: '#F3F4F6' },
+  back: {
+    position: 'absolute',
+    top: 44,
+    left: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+    zIndex: 3,
   },
+
+  sheet: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
+  title: { fontSize: 22, fontWeight: '800', color: '#111827' },
+  subtitle: { color: '#6B7280', marginTop: 4, marginBottom: 8 },
+
+  label: { fontWeight: '700', color: '#111827', marginTop: 6 },
+  inputWrap: { marginTop: 6 },
+
+  fakeInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  fakeInputText: { color: '#111827' },
+  placeholder: { color: '#9CA3AF' },
+
+  cta: {
+    marginTop: 14,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  // time modal
+  timeOverlay: {
+    position: 'absolute',
+    left: 0, right: 0, top: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+  timeSheet: {
+    width: '86%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+  },
+  timeTitle: { fontWeight: '700', color: '#111827', marginBottom: 10 },
+  timeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  timeChip: {
+    paddingVertical: 8, paddingHorizontal: 12,
+    borderRadius: 10, backgroundColor: '#F3F4F6',
+  },
+  timeChipActive: { backgroundColor: '#EDE9FE' },
+  timeChipText: { color: '#111827', fontWeight: '600' },
+  timeChipTextActive: { color: '#5B21B6' },
+  timeCancel: { marginTop: 12, alignSelf: 'flex-end' },
+  timeCancelText: { color: '#6B7280', fontWeight: '600' },
 });

@@ -5,6 +5,8 @@ import TabNavigator from './TabNavigator';
 import RideDetails from '../screens/RideDetails';
 import DriverVerificationRequirements from '../screens/DriverVerificationRequirements';
 import DriverVerificationUpload from '../screens/DriverVerificationUpload';
+import OfferRide from '../screens/OfferRide';
+import EditRide from '../screens/EditRide';
 import type { MainStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -18,8 +20,18 @@ export default function MainStack() {
       <Stack.Screen
         name="RideDetails"
         component={RideDetails}
-        // If you want a header on the details screen, flip this:
-        // options={{ headerShown: true, title: 'Ride Details' }}
+      />
+      <Stack.Screen
+        name="OfferRide"
+        component={OfferRide}
+        options={{
+          title: 'Offer ride',
+          presentation: 'modal', // looks nice as a sheet/modal
+        }}
+      />
+      <Stack.Screen
+        name="EditRide"
+        component={EditRide}
       />
       {/* Driver Verification Screens */}
       <Stack.Screen

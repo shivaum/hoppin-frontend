@@ -1,34 +1,43 @@
-// src/components/OfferRide/LocationInput.tsx
-import React, { forwardRef } from 'react';
-import { Text, StyleSheet } from 'react-native';
+// src/components/offerRides/LocationInput.tsx
+import React, { forwardRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 
+export type LatLng = { lat: number; lng: number };
+
 type Props = {
-  label: string;
   value: string;
   onChange: (val: string) => void;
-  onSelect: (address: string, coords: { lat: number; lng: number }) => void;
+  onSelect: (address: string, coords: LatLng) => void;
   apiKey: string;
 };
 
-export type LatLng = { lat: number; lng: number; };
-
 export default forwardRef<any, Props>(function LocationInput(
-  { label, value, onChange, onSelect, apiKey },
+  { value, onChange, onSelect, apiKey },
   ref
 ) {
+  const [focused, setFocused] = useState(false);
+
   return (
-    <>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.box, focused && styles.boxFocused]}>
       <GooglePlacesAutocomplete
         ref={ref}
-        placeholder={label}
+        placeholder=""
+        fetchDetails
         minLength={2}
         debounce={250}
-        fetchDetails
         GooglePlacesDetailsQuery={{ fields: 'geometry' }}
         query={{ key: apiKey, language: 'en' }}
-        textInputProps={{ value, onChangeText: onChange }}
+        enablePoweredByContainer={false}
+        predefinedPlaces={[]}
+        textInputProps={{
+          value,
+          onChangeText: onChange,
+          onFocus: () => setFocused(true),
+          onBlur: () => setFocused(false),
+          clearButtonMode: 'never',       // remove iOS “x”
+          placeholderTextColor: '#9CA3AF',
+        }}
         onPress={(data, details) => {
           const loc = details?.geometry?.location;
           onSelect(
@@ -37,28 +46,47 @@ export default forwardRef<any, Props>(function LocationInput(
           );
         }}
         onFail={(e) => console.log('Places error:', e)}
-        onNotFound={() => console.log('No results')}
-        enablePoweredByContainer={false}
-        predefinedPlaces={[]}                   
-        predefinedPlacesAlwaysVisible={false}
+        onNotFound={() => {}}
         styles={{
-          container: { flex: 0, zIndex: 1000 },
-          textInput: { ...styles.input, zIndex: 1000 },
-          listView: { backgroundColor: '#fff', zIndex: 2000 },
+          // remove inner container look entirely
+          container: { flex: 0 },
+          textInputContainer: {
+            backgroundColor: 'transparent',
+            borderTopWidth: 0,
+            borderBottomWidth: 0,
+            height: 44,
+          },
+          textInput: styles.input,        // typography/padding = mock
+          listView: { backgroundColor: '#fff', borderRadius: 12, marginTop: 8, zIndex: 2000 },
+          row: { paddingVertical: 12, paddingHorizontal: 12 },
+          separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB' },
         }}
       />
-    </>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
-  label: { marginTop: 12, marginBottom: 4, fontWeight: '500' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 6,
+  // outer single outline + grey fill (matches mock)
+  box: {
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#C4B5FD',         // light purple
+    backgroundColor: '#F5F6FA',     // light grey fill
     paddingHorizontal: 12,
-    height: 44,
-    backgroundColor: '#FFF',
+    paddingVertical: 8,
+  },
+  boxFocused: {
+    borderColor: '#8B5CF6',         // vivid purple on focus
+  },
+  // exact text styling (16, dark, no inner border)
+  input: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    padding: 0,
+    margin: 0,
+    height: 28,                     // keeps the vertical rhythm inside the box
+    fontSize: 16,
+    color: '#111827',
   },
 });

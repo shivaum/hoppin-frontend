@@ -1,204 +1,162 @@
-import React, { useEffect, useMemo, useState } from 'react'
+// src/screens/MyRides.tsx
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
-} from 'react-native'
-import { useAuth } from '../contexts/AuthContext'
-import { getMyDriverRides, acceptRideRequest, declineRideRequest } from '../integrations/hopin-backend/driver'
-import { getMyRideRequests } from '../integrations/hopin-backend/rider'
-import DriverRidesTab from '../components/myRides/DriverRidesTab'
-import RiderRidesTab from '../components/myRides/RiderRidesTab'
-import Toast from "react-native-toast-message";
-import type { DriverRide, RideRequestItem } from '../types'
+  SafeAreaView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../contexts/AuthContext';
 
-type Tab = 'driver' | 'rider'
+import DriverRidesTab from '../components/myRides/DriverRidesTab';
+import RiderRidesTab from '../components/myRides/RiderRidesTab';
+import type { MainStackParamList } from '../navigation/types';
+
+type Mode = 'driver' | 'rider';
+type Nav = NativeStackNavigationProp<MainStackParamList>;
 
 export default function MyRides() {
-  const { user } = useAuth()
-  const isDriver = !!user?.is_driver
+  const { user } = useAuth();
+  const navigation = useNavigation<Nav>();
+  const [mode, setMode] = useState<Mode>('driver');
 
-  const [activeTab, setActiveTab] = useState<Tab>(isDriver ? 'driver' : 'rider')
-  const [driverRides, setDriverRides] = useState<DriverRide[]>([])
-  const [riderBookings, setRiderBookings] = useState<RideRequestItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const isDriver = !!user?.is_driver;
 
-  useEffect(() => {
-    setActiveTab(isDriver ? 'driver' : 'rider')
-  }, [isDriver])
-
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      setLoading(true)
-      try {
-        const [driverData, riderData] = await Promise.all([
-          isDriver ? getMyDriverRides() : Promise.resolve([]),
-          getMyRideRequests(),
-        ])
-        if (!mounted) return
-        setDriverRides(driverData)
-        setRiderBookings(riderData)
-      } catch (err: any) {
-        console.error(err)
-        Toast.show({
-          type: 'error',
-          text1: 'Error Loading Rides',
-          text2: 'Could not fetch your rides or bookings.',
-        })
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    })()
-    return () => { mounted = false }
-  }, [isDriver])
-
-  const handleRequestAction = async (
-    requestId: string,
-    action: 'accepted' | 'declined'
-  ) => {
-    try {
-      if (action === 'accepted') {
-        await acceptRideRequest(requestId)
-      } else {
-        await declineRideRequest(requestId)
-      }
-      setDriverRides((prev) =>
-        prev.map((ride) => ({
-          ...ride,
-          requests: ride.requests.map((r) =>
-            r.id === requestId ? { ...r, status: action } : r
-          ),
-        }))
-      )
-      Toast.show({
-        type: 'success',
-        text1: `Request ${action}`,
-        text2: `You have ${action} this request.`,
-      })
-    } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Update Failed',
-        text2: `Couldn't ${action} the request.`,
-      })
-    }
-  }
-
-  const orderedDriverRides = useMemo(
-    () =>
-      [...driverRides].sort(
-        (a, b) =>
-          new Date(a.departure_time).getTime() -
-          new Date(b.departure_time).getTime()
-      ),
-    [driverRides]
-  )
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Loading your rides…</Text>
-      </View>
-    )
-  }
+  const goToOfferRide = () => {
+    navigation.navigate('OfferRide');
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerIcon}>🚗</Text>
-        <Text style={styles.headerTitle}>My Rides</Text>
-      </View>
+    <SafeAreaView style={styles.root}>
+      {/* Header row */}
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.title}>My rides</Text>
+          <Text style={styles.subtitle}>Your scheduled rides</Text>
+        </View>
 
-      {/* Tab Switcher */}
-      <View style={styles.tabs}>
         {isDriver && (
           <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === 'driver' && styles.tabActive,
-            ]}
-            onPress={() => setActiveTab('driver')}
+            style={styles.offerBtn}
+            onPress={goToOfferRide}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Offer a ride"
           >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'driver' && styles.tabTextActive,
-              ]}
-            >
-              As Driver
-            </Text>
+            <Text style={styles.offerBtnText}>Offer ride</Text>
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* Segmented control */}
+      <View style={styles.segmentWrap}>
         <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'rider' && styles.tabActive,
-          ]}
-          onPress={() => setActiveTab('rider')}
+          style={[styles.segment, mode === 'driver' && styles.segmentActive]}
+          onPress={() => setMode('driver')}
+          activeOpacity={0.9}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === 'rider' && styles.tabTextActive,
-            ]}
-          >
-            As Rider
+          <Ionicons
+            name="car"
+            size={16}
+            color={mode === 'driver' ? '#111827' : '#6B7280'}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={[styles.segmentText, mode === 'driver' && styles.segmentTextActive]}>
+            I’m a driver
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.segment, mode === 'rider' && styles.segmentActive]}
+          onPress={() => setMode('rider')}
+          activeOpacity={0.9}
+        >
+          <Ionicons
+            name="person"
+            size={16}
+            color={mode === 'rider' ? '#111827' : '#6B7280'}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={[styles.segmentText, mode === 'rider' && styles.segmentTextActive]}>
+            I’m a rider
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Content */}
-      {activeTab === 'driver' && isDriver ? (
-        <DriverRidesTab
-          driverRides={orderedDriverRides}
-          onAction={handleRequestAction}
-        />
-      ) : (
-        <RiderRidesTab rideRequests={riderBookings} />
-      )}
-    </View>
-  )
+      <View style={styles.content}>
+        {mode === 'driver' ? <DriverRidesTab /> : <RiderRidesTab />}
+      </View>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  loadingContainer: {
+  root: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
   },
-  loadingText: { marginTop: 8, color: '#6B7280' },
-  header: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 12,
   },
-  headerIcon: { fontSize: 24, marginRight: 8 },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
     color: '#111827',
   },
-  tabs: {
+  subtitle: {
+    marginTop: 2,
+    color: '#6B7280',
+    fontSize: 14,
+  },
+  offerBtn: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  offerBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  segmentWrap: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
+    gap: 10,
+    marginBottom: 12,
   },
-  tab: {
+  segment: {
     flex: 1,
-    paddingVertical: 12,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderColor: '#3b82f6',
+  segmentActive: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#A5B4FC',
   },
-  tabText: { color: '#6B7280', fontSize: 16 },
-  tabTextActive: { color: '#111827', fontWeight: '600' },
-})
+  segmentText: {
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  segmentTextActive: {
+    color: '#111827',
+  },
+  content: {
+    flex: 1,
+    paddingTop: 8,
+  },
+});
