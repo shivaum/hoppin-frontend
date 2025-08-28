@@ -35,7 +35,11 @@ export default function TabNavigator() {
         headerTitleAlign: 'center',
       })}
     >
-      <Tab.Screen name="Find Ride" component={SearchRides} />
+      <Tab.Screen 
+        name="Find Ride" 
+        component={SearchRides} 
+        options={{ headerShown: false }}
+      />
       <Tab.Screen name="My Rides" component={MyRides} />
       <Tab.Screen name="Messages" component={Messages} />
       <Tab.Screen name="Profile" component={UserProfile} />

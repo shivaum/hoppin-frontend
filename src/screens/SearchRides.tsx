@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -17,9 +18,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { searchRides, getMyRideRequests } from '../integrations/hopin-backend/rider';
 import type { SearchRide as SearchRideType, Ride as RideType } from '../types';
 import RideCard from '../components/searchRides/RideCard';
-import LocationInput, { LatLng } from '../components/offerRides/LocationInput';
-import SubmitButton from '../components/offerRides/SubmitButton';
-import CalendarModal from '../components/searchRides/CalendarModal';
+import LocationInput, { LatLng } from '../components/common/inputs/LocationInput';
+import SubmitButton from '../components/common/buttons/SubmitButton';
+import CalendarModal from '../components/common/modals/CalendarModal';
+import { colors } from '../constants/colors';
 
 const RECENTS_KEY = 'search_recents_v2';
 const MAX_RECENTS = 4;
@@ -124,10 +126,11 @@ export default function SearchRides() {
   const hasInputs = fromText.trim().length > 0 || toText.trim().length > 0;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.select({ ios: 'padding', android: undefined })}
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.select({ ios: 'padding', android: undefined })}
+      >
       {/* Top right date pill */}
       <View style={styles.topRow}>
         <TouchableOpacity style={styles.datePill} onPress={() => setCalendarOpen(true)}>
@@ -241,13 +244,15 @@ export default function SearchRides() {
           setCalendarOpen(false);
         }}
       />
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const purple = '#7C3AED';
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
 
   topRow: { alignItems: 'flex-end' },

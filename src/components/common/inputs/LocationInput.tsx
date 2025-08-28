@@ -55,8 +55,9 @@ export default forwardRef<any, Props>(function LocationInput(
             borderTopWidth: 0,
             borderBottomWidth: 0,
             height: 44,
+            justifyContent: 'center',       // center the text input vertically
           },
-          textInput: styles.input,        // typography/padding = mock
+          textInput: styles.input,
           listView: { backgroundColor: '#fff', borderRadius: 12, marginTop: 8, zIndex: 2000 },
           row: { paddingVertical: 12, paddingHorizontal: 12 },
           separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB' },
@@ -74,7 +75,8 @@ const styles = StyleSheet.create({
     borderColor: '#C4B5FD',         // light purple
     backgroundColor: '#F5F6FA',     // light grey fill
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    height: 60,                     // fixed height to ensure proper sizing
+    justifyContent: 'center',       // center content vertically
   },
   boxFocused: {
     borderColor: '#8B5CF6',         // vivid purple on focus
@@ -85,8 +87,10 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     padding: 0,
     margin: 0,
-    height: 28,                     // keeps the vertical rhythm inside the box
+    height: 44,                     // match the full height of the container
     fontSize: 16,
     color: '#111827',
+    textAlignVertical: 'center',    // center text vertically
+    lineHeight: 44,                 // match height for perfect vertical centering
   },
 });

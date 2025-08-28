@@ -13,9 +13,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
-import Map from '../components/map/Map';
-import LocationInput, { LatLng } from '../components/offerRides/LocationInput';
-import CalendarModal from '../components/searchRides/CalendarModal';
+import Map from '../components/common/map/Map';
+import LocationInput, { LatLng } from '../components/common/inputs/LocationInput';
+import CalendarModal from '../components/common/modals/CalendarModal';
 import { createRide } from '../integrations/hopin-backend/driver';
 import type { MainStackParamList } from '../navigation/types';
 

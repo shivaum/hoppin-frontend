@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import type { RideRequestItem } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
-import { StatusBadge } from './StatusBadge';
+import { StatusBadge } from '../common/indicators/StatusBadge';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/types';

@@ -6,9 +6,9 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
-import Map from '../components/map/Map';
+import Map from '../components/common/map/Map';
 import { Ionicons } from '@expo/vector-icons';
-import LocationInput from '../components/offerRides/LocationInput';
+import LocationInput from '../components/common/inputs/LocationInput';
 
 type Route = RouteProp<MainStackParamList, 'EditRide'>;
 type Nav   = NativeStackNavigationProp<MainStackParamList, 'EditRide'>;
