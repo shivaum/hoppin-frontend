@@ -167,6 +167,8 @@ export default function RideDetails() {
   const rideId: string = (params as any).rideId ?? (params as any).ride_id;
   const requestId: string | undefined =
     (params as any).requestId ?? (params as any).request_id;
+  const myRequestStatus: string | null =
+    (params as any).myRequestStatus ?? null;
 
   const baseFare =
     (params as any).base_fare ??
@@ -177,9 +179,67 @@ export default function RideDetails() {
   const total = Math.max(baseFare + fee - discount, 0);
 
   // PERMISSIONS
-  const canRequest = role === 'search' && status === 'available' && availableSeats > 0;
+  const canRequest = role === 'search' && status === 'available' && availableSeats > 0 && !myRequestStatus;
   const canCancel  = role === 'rider' && (status === 'pending' || status === 'accepted');
   const canContact = role === 'rider' && status === 'accepted';
+
+  // Helper functions for request status styling
+  const getRequestStatusStyle = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return { backgroundColor: '#FEF3C7' };
+      case 'accepted':
+        return { backgroundColor: '#D1FAE5' };
+      case 'declined':
+      case 'rejected':
+        return { backgroundColor: '#FEE2E2' };
+      default:
+        return { backgroundColor: '#F3F4F6' };
+    }
+  };
+
+  const getRequestStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return '#92400E';
+      case 'accepted':
+        return '#065F46';
+      case 'declined':
+      case 'rejected':
+        return '#991B1B';
+      default:
+        return '#6B7280';
+    }
+  };
+
+  const getRequestStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'time-outline' as const;
+      case 'accepted':
+        return 'checkmark-circle-outline' as const;
+      case 'declined':
+      case 'rejected':
+        return 'close-circle-outline' as const;
+      default:
+        return 'help-circle-outline' as const;
+    }
+  };
+
+  const getRequestStatusMessage = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Request pending - waiting for driver response';
+      case 'accepted':
+        return 'Request accepted! You can contact the driver';
+      case 'declined':
+        return 'Request declined - try another ride';
+      case 'rejected':
+        return 'Request rejected - try another ride';
+      default:
+        return 'Request status unknown';
+    }
+  };
 
   // ACTIONS
   const handleRequest = async () => {
@@ -349,13 +409,32 @@ export default function RideDetails() {
 
           {/* CTAs */}
           {role === 'search' && (
-            <TouchableOpacity
-              style={[styles.cta, (loading || !canRequest) && { opacity: 0.6 }]}
-              onPress={handleRequest}
-              disabled={loading || !canRequest}
-            >
-              <Text style={styles.ctaText}>{loading ? 'Requesting…' : 'Request ride'}</Text>
-            </TouchableOpacity>
+            <>
+              {/* Show request status if user has already requested */}
+              {myRequestStatus && (
+                <View style={[styles.statusContainer, getRequestStatusStyle(myRequestStatus)]}>
+                  <Ionicons 
+                    name={getRequestStatusIcon(myRequestStatus)} 
+                    size={20} 
+                    color={getRequestStatusColor(myRequestStatus)} 
+                  />
+                  <Text style={[styles.statusText, { color: getRequestStatusColor(myRequestStatus) }]}>
+                    {getRequestStatusMessage(myRequestStatus)}
+                  </Text>
+                </View>
+              )}
+              
+              {/* Request button - only show if no existing request */}
+              {!myRequestStatus && (
+                <TouchableOpacity
+                  style={[styles.cta, (loading || !canRequest) && { opacity: 0.6 }]}
+                  onPress={handleRequest}
+                  disabled={loading || !canRequest}
+                >
+                  <Text style={styles.ctaText}>{loading ? 'Requesting…' : 'Request ride'}</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
 
           {role === 'rider' && (
@@ -499,6 +578,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  statusContainer: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
 
   rowGap: { flexDirection: 'row', gap: 12, marginTop: 16 },
   secondary: {

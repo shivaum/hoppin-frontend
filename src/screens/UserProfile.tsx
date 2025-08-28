@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View, TouchableOpacity, Text } from "react-native";
 import Toast from "react-native-toast-message";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -68,6 +68,15 @@ export default function UserProfile() {
     navigation.navigate('DriverVerificationRequirements');
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      Toast.show({ type: "success", text1: "Logged out successfully" });
+    } catch (err: any) {
+      Toast.show({ type: "error", text1: "Logout failed", text2: err.message });
+    }
+  };
+
   const menuItems = [
     {
       id: 'account',
@@ -128,6 +137,15 @@ export default function UserProfile() {
 
   return (
     <View style={styles.container}>
+      {/* Logout button at top - only show for current user */}
+      {isCurrentUser && (
+        <View style={styles.topRow}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <ProfileHeader
           name={profile?.name || 'Unknown User'}
@@ -178,6 +196,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral.gray50,
+  },
+  topRow: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  logoutButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2', // Light red background
+  },
+  logoutButtonText: {
+    color: '#DC2626', // Red text
+    fontWeight: '700',
   },
   scrollView: {
     flex: 1,

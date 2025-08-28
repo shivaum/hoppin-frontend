@@ -1,5 +1,5 @@
 // src/screens/SearchRides.tsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,16 +19,20 @@ import { searchRides, getMyRideRequests } from '../integrations/hopin-backend/ri
 import type { SearchRide as SearchRideType, Ride as RideType } from '../types';
 import RideCard from '../components/searchRides/RideCard';
 import LocationInput, { LatLng } from '../components/common/inputs/LocationInput';
+import { GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
 import SubmitButton from '../components/common/buttons/SubmitButton';
 import CalendarModal from '../components/common/modals/CalendarModal';
-import { colors } from '../constants/colors';
 
-const RECENTS_KEY = 'search_recents_v2';
 const MAX_RECENTS = 4;
 
 export default function SearchRides() {
   const { user } = useAuth();
+  const RECENTS_KEY = `search_recents_v2_${user?.id || 'guest'}`;
   const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey as string;
+
+  // Refs for LocationInput components
+  const fromInputRef = useRef<GooglePlacesAutocompleteRef>(null);
+  const toInputRef = useRef<GooglePlacesAutocompleteRef>(null);
 
   const [fromText, setFromText] = useState('');
   const [toText, setToText] = useState('');
@@ -44,16 +48,26 @@ export default function SearchRides() {
   const [myRequestsMap, setMyRequestsMap] = useState<Record<string, string>>({});
 
   const [recents, setRecents] = useState<string[]>([]);
+  const [focusedInput, setFocusedInput] = useState<'from' | 'to' | null>(null);
+  const [showRecents, setShowRecents] = useState(true);
+  const [justCompletedSearch, setJustCompletedSearch] = useState(false);
+  const [lastSearchTexts, setLastSearchTexts] = useState<{from: string, to: string}>({from: '', to: ''});
 
-  // Load recents on mount
+  // Load recents on mount (user-specific)
   useEffect(() => {
+    if (!user?.id) return; // Don't load recents if no user
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(RECENTS_KEY);
         setRecents(raw ? JSON.parse(raw) : []);
       } catch {}
     })();
-  }, []);
+  }, [RECENTS_KEY, user?.id]); // Reload when user changes
+  
+  // Clear recents when user changes
+  useEffect(() => {
+    setRecents([]); // Clear current recents state when user changes
+  }, [user?.id]);
 
   // Load my requests map
   useEffect(() => {
@@ -86,10 +100,18 @@ export default function SearchRides() {
 
   const saveRecent = async (value: string) => {
     const v = value.trim();
-    if (!v) return;
-    const next = [v, ...recents.filter(x => x !== v)].slice(0, MAX_RECENTS);
-    setRecents(next);
-    try { await AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(next)); } catch {}
+    if (!v || !user?.id) return;
+    
+    return new Promise<void>((resolve) => {
+      setRecents(currentRecents => {
+        const next = [v, ...currentRecents.filter(x => x !== v)].slice(0, MAX_RECENTS);
+        // Save to AsyncStorage with the updated array
+        AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(next))
+          .catch(() => {}) // Ignore errors
+          .finally(() => resolve());
+        return next;
+      });
+    });
   };
 
   const handleSearch = useCallback(async () => {
@@ -99,7 +121,15 @@ export default function SearchRides() {
     try {
       const results = await searchRides(fromText, toText);
       setRides(results.map(mapToRide));
-      await Promise.all([saveRecent(fromText), saveRecent(toText)]);
+      setJustCompletedSearch(true); // Flag to prevent onChange from showing recents
+      setLastSearchTexts({from: fromText, to: toText}); // Store what we searched for
+      await saveRecent(fromText);
+      await saveRecent(toText);
+      setShowRecents(false); // Hide recents after successful search
+      // Reset flag after a short delay to allow for automatic onChange calls
+      setTimeout(() => {
+        setJustCompletedSearch(false);
+      }, 200); // Increased timeout
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Search failed');
@@ -142,35 +172,57 @@ export default function SearchRides() {
       <View style={styles.inputs}>
         <View style={styles.inputShell}>
           <LocationInput
-            ref={null}
+            ref={fromInputRef}
             apiKey={apiKey}
             value={fromText}
-            onChange={setFromText}
+            onChange={(text) => {
+              setFromText(text);
+              // Only show recents if user is genuinely changing the text from what was searched
+              if (!justCompletedSearch && text !== lastSearchTexts.from) {
+                setShowRecents(true); // Show recents when typing
+              }
+            }}
             onSelect={(loc, coords) => {
               setFromText(loc);
               setFromCoords(coords);
-              saveRecent(loc);
             }}
+            onClear={() => {
+              setFromCoords({ lat: 0, lng: 0 });
+              setShowRecents(true); // Show recents when clearing
+            }}
+            onFocus={() => setFocusedInput('from')}
+            onBlur={() => setFocusedInput(null)}
           />
         </View>
 
         <View style={styles.inputShell}>
           <LocationInput
-            ref={null}
+            ref={toInputRef}
             apiKey={apiKey}
             value={toText}
-            onChange={setToText}
+            onChange={(text) => {
+              setToText(text);
+              // Only show recents if user is genuinely changing the text from what was searched
+              if (!justCompletedSearch && text !== lastSearchTexts.to) {
+                setShowRecents(true); // Show recents when typing
+              }
+            }}
             onSelect={(loc, coords) => {
               setToText(loc);
               setToCoords(coords);
-              saveRecent(loc);
             }}
+            onClear={() => {
+              setToCoords({ lat: 0, lng: 0 });
+              setShowRecents(true); // Show recents when clearing
+            }}
+            onFocus={() => setFocusedInput('to')}
+            onBlur={() => setFocusedInput(null)}
           />
         </View>
       </View>
 
       {/* Recents */}
-      {!isSearching && (
+      {!isSearching && showRecents && (
         <View style={styles.recentsWrap}>
           <Text style={styles.recentsTitle}>Recents</Text>
           {recents.slice(0, MAX_RECENTS).map((r) => (
@@ -178,8 +230,39 @@ export default function SearchRides() {
               key={r}
               style={styles.recentRow}
               onPress={() => {
-                if (!fromText) setFromText(r);
-                else setToText(r);
+                // Populate focused input, or fallback to first available empty input, or default to 'from'
+                if (focusedInput === 'from') {
+                  setFromText(r);
+                  // Also update the GooglePlacesAutocomplete component
+                  if (fromInputRef.current) {
+                    fromInputRef.current.setAddressText(r);
+                  }
+                } else if (focusedInput === 'to') {
+                  setToText(r);
+                  // Also update the GooglePlacesAutocomplete component
+                  if (toInputRef.current) {
+                    toInputRef.current.setAddressText(r);
+                  }
+                } else if (!fromText) {
+                  setFromText(r);
+                  // Also update the GooglePlacesAutocomplete component
+                  if (fromInputRef.current) {
+                    fromInputRef.current.setAddressText(r);
+                  }
+                } else if (!toText) {
+                  setToText(r);
+                  // Also update the GooglePlacesAutocomplete component
+                  if (toInputRef.current) {
+                    toInputRef.current.setAddressText(r);
+                  }
+                } else {
+                  // Both inputs have text, default to replacing 'from'
+                  setFromText(r);
+                  // Also update the GooglePlacesAutocomplete component
+                  if (fromInputRef.current) {
+                    fromInputRef.current.setAddressText(r);
+                  }
+                }
               }}
             >
               <Ionicons name="time-outline" size={18} color="#6B7280" style={{ marginRight: 10 }} />
