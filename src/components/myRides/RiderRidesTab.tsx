@@ -22,23 +22,33 @@ export default function RiderRidesTab({
 
   // Convert RideRequestItem to Ride format for RideCard
   const convertToRide = useCallback((request: RideRequestItem): Ride & { myRequestStatus: string | null } => ({
-    id: request.ride_id,
-    driverId: '', // Not available in RideRequestItem
-    startLocation: request.start_location,
-    endLocation: request.end_location,
-    departureTime: request.departure_time,
-    availableSeats: request.available_seats,
-    pricePerSeat: request.price_per_seat,
-    status: request.status,
-    requests: [],
-    myRequestStatus: request.status,
-    driver: {
-      name: request.driver_name,
-      photo: null, // Not available in RideRequestItem
-      rating: 0, // Not available in RideRequestItem
-      totalRides: 0, // Not available in RideRequestItem
-    }
+      id: request.ride_id,
+      driverId: '', // Not available in RideRequestItem
+      startLocation: request.start_location,
+      endLocation: request.end_location,
+      departureTime: request.departure_time,
+      availableSeats: request.available_seats,
+      pricePerSeat: request.price_per_seat,
+      status: request.status,
+      requests: [],
+      myRequestStatus: request.status,
+      driver: {
+        name: request.driver_name,
+        photo: request.driver_photo,
+        rating: request.driver_rating,
+        totalRides: request.driver_total_rides,
+      }
   }), []);
+
+  // Sort ride requests by departure time (earliest first)
+  const sortRidesByDate = (requests: RideRequestItem[]): RideRequestItem[] => {
+    return requests.sort((a, b) => {
+      const aTime = new Date(a.departure_time).getTime();
+      const bTime = new Date(b.departure_time).getTime();
+      
+      return aTime - bTime; // Ascending order (earliest dates first)
+    });
+  };
 
   // Self-fetch if no data provided
   useEffect(() => {
@@ -47,11 +57,11 @@ export default function RiderRidesTab({
       (async () => {
         try {
           const data = await getMyRideRequests();
-          if (mounted) setLocal(data);
+          if (mounted) setLocal(sortRidesByDate(data));
         } catch {}
       })();
     } else {
-      setLocal(rideRequests);
+      setLocal(sortRidesByDate(rideRequests));
     }
     return () => { mounted = false; };
   }, [rideRequests]);
@@ -62,7 +72,7 @@ export default function RiderRidesTab({
     setRefreshing(true);
     try {
       const data = await getMyRideRequests();
-      setLocal(data);
+      setLocal(sortRidesByDate(data));
     } catch {} finally {
       setRefreshing(false);
     }

@@ -161,6 +161,7 @@ export default function RideDetails() {
   const driverRating: number | undefined =
     (params as any).driverRating ?? (params as any).driver_rating;
 
+
   const startShort = extractShort(startAddress) || 'Start';
   const endShort = extractShort(endAddress) || 'End';
 
@@ -342,7 +343,7 @@ export default function RideDetails() {
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.driverName}>{driverName}</Text>
-              {!!driverRating && (
+              {driverRating !== undefined && (
                 <View style={styles.ratingPill}>
                   <Ionicons name="star" size={12} color="#111827" />
                   <Text style={styles.ratingText}>{driverRating.toFixed(1)}</Text>

@@ -31,6 +31,7 @@ export default function DriverRideItem({ ride }: Props) {
   const titleLeft = extractShort(ride.start_location);
   const titleRight = extractShort(ride.end_location);
   const dateLabel = `${formatDateShort(ride.departure_time)}, ${formatTime(ride.departure_time)}`;
+  const dateDisplay = useMemo(() => formatDateShort(ride.departure_time), [ride.departure_time]);
 
   // Calculate estimated drop-off time
   useEffect(() => {
@@ -88,6 +89,12 @@ export default function DriverRideItem({ ride }: Props) {
     <TouchableOpacity activeOpacity={0.85} onPress={goToDetails} style={styles.card}>
       {/* Left: Route and time info */}
       <View style={{ flex: 1 }}>
+        {/* Date header */}
+        <View style={styles.dateHeader}>
+          <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+          <Text style={styles.dateHeaderText}>{dateDisplay}</Text>
+        </View>
+        
         <View style={styles.row}>
           <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
           <Text style={styles.smallLabel}>Pick-up</Text>
@@ -103,12 +110,6 @@ export default function DriverRideItem({ ride }: Props) {
         <Text numberOfLines={1} style={styles.addr}>{ride.start_location}</Text>
         <View style={styles.divider} />
         <Text numberOfLines={1} style={styles.addr}>{ride.end_location}</Text>
-
-        {/* Date info */}
-        <View style={styles.dateRow}>
-          <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-          <Text style={styles.dateText}>{dateLabel}</Text>
-        </View>
       </View>
 
       {/* Right: Stats and price */}
@@ -191,6 +192,21 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
 
+  dateHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 6,
+  },
+  dateHeaderText: { 
+    color: '#7C3AED', 
+    fontSize: 14, 
+    fontWeight: '700',
+  },
+
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   dot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
   smallLabel: { color: '#6B7280', fontSize: 12, marginRight: 6 },
@@ -198,9 +214,6 @@ const styles = StyleSheet.create({
 
   addr: { color: '#111827', marginTop: 2 },
   divider: { height: 2, width: 2, backgroundColor: '#D1D5DB', marginVertical: 6, marginLeft: 3, borderRadius: 1 },
-
-  dateRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 4 },
-  dateText: { color: '#6B7280', fontSize: 12 },
 
   rightCol: { alignItems: 'flex-end', justifyContent: 'space-between' },
   seatsRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

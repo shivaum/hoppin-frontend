@@ -27,6 +27,16 @@ export default function DriverRidesTab({
   const [local, setLocal] = useState<DriverRide[] | null>(driverRides ?? null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Sort rides by departure time (earliest first)
+  const sortRidesByDate = (rides: DriverRide[]): DriverRide[] => {
+    return rides.sort((a, b) => {
+      const aTime = new Date(a.departure_time).getTime();
+      const bTime = new Date(b.departure_time).getTime();
+      
+      return aTime - bTime; // Ascending order (earliest dates first)
+    });
+  };
+
   // Self-fetch if the parent didn't pass data
   useEffect(() => {
     let mounted = true;
@@ -34,18 +44,18 @@ export default function DriverRidesTab({
       (async () => {
         try {
           const data = await getMyDriverRides();
-          if (mounted) setLocal(data);
+          if (mounted) setLocal(sortRidesByDate(data));
         } catch {}
       })();
     } else {
-      setLocal(driverRides);
+      setLocal(sortRidesByDate(driverRides));
     }
     return () => { mounted = false; };
   }, [driverRides, refreshTrigger]);
 
   const selfRefresh = async () => {
     const data = await getMyDriverRides();
-    setLocal(data);
+    setLocal(sortRidesByDate(data));
   };
 
   const handleRefresh = async () => {

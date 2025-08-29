@@ -1,6 +1,6 @@
 // src/components/searchRides/RideCard.tsx
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import type { Ride } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -9,7 +9,7 @@ import type { MainStackParamList } from '../../navigation/types';
 import Toast from 'react-native-toast-message';
 import { requestRide } from '../../integrations/hopin-backend/rider';
 import { calculateTravelTime } from '../../utils/travelTime';
-import { formatTime } from '../../utils/dateTime';
+import { formatTime, formatDateShort } from '../../utils/dateTime';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
 
@@ -36,6 +36,7 @@ export default function RideCard({
   const isOwn = !!myProfileId && myProfileId === ride.driverId;
 
   const timePickup = useMemo(() => formatTime(ride.departureTime), [ride.departureTime]);
+  const dateDisplay = useMemo(() => formatDateShort(ride.departureTime), [ride.departureTime]);
 
   // Calculate estimated drop-off time
   useEffect(() => {
@@ -111,6 +112,12 @@ export default function RideCard({
     <TouchableOpacity activeOpacity={0.85} onPress={openDetails} style={s.card}>
       {/* Left: labels/times */}
       <View style={{ flex: 1 }}>
+        {/* Date header */}
+        <View style={s.dateHeader}>
+          <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+          <Text style={s.dateText}>{dateDisplay}</Text>
+        </View>
+        
         <View style={s.row}>
           <View style={[s.dot, { backgroundColor: '#3B82F6' }]} />
           <Text style={s.smallLabel}>Pick-up</Text>
@@ -126,6 +133,28 @@ export default function RideCard({
         <Text numberOfLines={1} style={s.addr}>{ride.startLocation}</Text>
         <View style={s.divider} />
         <Text numberOfLines={1} style={s.addr}>{ride.endLocation}</Text>
+
+        {/* Driver info */}
+        <View style={s.driverRow}>
+          {ride.driver.photo ? (
+            <Image source={{ uri: ride.driver.photo }} style={s.driverAvatar} />
+          ) : (
+            <View style={[s.driverAvatar, s.driverAvatarFallback]}>
+              <Text style={s.driverAvatarText}>
+                {ride.driver.name?.charAt(0) ?? 'D'}
+              </Text>
+            </View>
+          )}
+          <View style={s.driverInfo}>
+            <Text style={s.driverName}>{ride.driver.name}</Text>
+            {ride.driver.rating !== undefined && (
+              <View style={s.ratingRow}>
+                <Ionicons name="star" size={12} color="#F59E0B" />
+                <Text style={s.ratingText}>{ride.driver.rating.toFixed(1)}</Text>
+              </View>
+            )}
+          </View>
+        </View>
       </View>
 
       {/* Right: seats & price */}
@@ -183,6 +212,21 @@ const s = StyleSheet.create({
     elevation: 1,
   },
 
+  dateHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 6,
+  },
+  dateText: { 
+    color: '#7C3AED', 
+    fontSize: 14, 
+    fontWeight: '700',
+  },
+
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   dot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
   smallLabel: { color: '#6B7280', fontSize: 12, marginRight: 6 },
@@ -190,6 +234,50 @@ const s = StyleSheet.create({
 
   addr: { color: '#111827', marginTop: 2 },
   divider: { height: 2, width: 2, backgroundColor: '#D1D5DB', marginVertical: 6, marginLeft: 3, borderRadius: 1 },
+
+  driverRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 8,
+  },
+  driverAvatar: { 
+    width: 24, 
+    height: 24, 
+    borderRadius: 12,
+  },
+  driverAvatarFallback: { 
+    backgroundColor: '#9CA3AF', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+  },
+  driverAvatarText: { 
+    color: '#fff', 
+    fontSize: 10, 
+    fontWeight: '600',
+  },
+  driverInfo: { 
+    flex: 1,
+  },
+  driverName: { 
+    color: '#111827', 
+    fontSize: 12, 
+    fontWeight: '600',
+  },
+  ratingRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginTop: 2,
+    gap: 3,
+  },
+  ratingText: { 
+    color: '#6B7280', 
+    fontSize: 11,
+    fontWeight: '500',
+  },
 
   rightCol: { alignItems: 'flex-end', justifyContent: 'space-between' },
   seatsRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },

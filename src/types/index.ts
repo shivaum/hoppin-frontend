@@ -128,6 +128,9 @@ export interface RideRequestItem {
   departure_time: string;       // ISO
   status: "pending" | "accepted" | "declined" | "rejected";
   driver_name: string;
+  driver_photo: string | null;
+  driver_rating: number;
+  driver_total_rides: number;
   price_per_seat: number;
   available_seats: number;
   pickup: {
