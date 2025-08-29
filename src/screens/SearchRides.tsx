@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { searchRides, getMyRideRequests } from '../integrations/hopin-backend/rider';
+import { searchRides } from '../integrations/hopin-backend/rider';
 import type { SearchRide as SearchRideType, Ride as RideType } from '../types';
 import RideCard from '../components/searchRides/RideCard';
 import LocationInput, { LatLng } from '../components/common/inputs/LocationInput';
@@ -45,7 +45,6 @@ export default function SearchRides() {
   const [rides, setRides] = useState<RideType[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [myRequestsMap, setMyRequestsMap] = useState<Record<string, string>>({});
 
   const [recents, setRecents] = useState<string[]>([]);
   const [focusedInput, setFocusedInput] = useState<'from' | 'to' | null>(null);
@@ -69,18 +68,8 @@ export default function SearchRides() {
     setRecents([]); // Clear current recents state when user changes
   }, [user?.id]);
 
-  // Load my requests map
-  useEffect(() => {
-    getMyRideRequests()
-      .then(reqs => {
-        const m: Record<string, string> = {};
-        reqs.forEach(r => { m[r.ride_id] = r.status; });
-        setMyRequestsMap(m);
-      })
-      .catch(console.warn);
-  }, []);
 
-  const mapToRide = useCallback((r: SearchRideType): RideType => ({
+  const mapToRide = useCallback((r: SearchRideType): RideType & { myRequestStatus: string | null } => ({
     id: r.ride_id,
     driverId: r.driver_id,
     startLocation: r.start_location,
@@ -90,6 +79,7 @@ export default function SearchRides() {
     pricePerSeat: r.price_per_seat,
     status: r.status,
     requests: [],
+    myRequestStatus: r.my_request_status,
     driver: {
       name: r.driver.name,
       photo: r.driver.photo,
@@ -97,6 +87,42 @@ export default function SearchRides() {
       totalRides: r.driver.total_rides ?? 0,
     }
   }), []);
+
+  const sortRidesByDateRelevance = useCallback((rides: (RideType & { myRequestStatus: string | null })[], searchDate: string) => {
+    const searchDateTime = new Date(searchDate + 'T00:00:00').getTime();
+    const searchDateOnly = new Date(searchDate).toDateString();
+    
+    return rides.sort((a, b) => {
+      const aTime = new Date(a.departureTime).getTime();
+      const bTime = new Date(b.departureTime).getTime();
+      const aDateOnly = new Date(a.departureTime).toDateString();
+      const bDateOnly = new Date(b.departureTime).toDateString();
+      
+      // Priority 1: Rides on the selected date come first
+      const aIsOnSelectedDate = aDateOnly === searchDateOnly;
+      const bIsOnSelectedDate = bDateOnly === searchDateOnly;
+      
+      if (aIsOnSelectedDate && !bIsOnSelectedDate) return -1;
+      if (!aIsOnSelectedDate && bIsOnSelectedDate) return 1;
+      
+      // Priority 2: If both are on selected date OR both are not, sort by closest time to selected date
+      if (aIsOnSelectedDate && bIsOnSelectedDate) {
+        // Both on selected date - sort by departure time (earlier first)
+        return aTime - bTime;
+      } else {
+        // Neither on selected date - sort by closest to selected date
+        const aDiff = Math.abs(aTime - searchDateTime);
+        const bDiff = Math.abs(bTime - searchDateTime);
+        
+        if (aDiff !== bDiff) {
+          return aDiff - bDiff;
+        }
+        
+        // If same distance from search date, sort by departure time (earlier first)
+        return aTime - bTime;
+      }
+    });
+  }, []);
 
   const saveRecent = async (value: string) => {
     const v = value.trim();
@@ -119,8 +145,14 @@ export default function SearchRides() {
     setHasSearched(true);
     setIsSearching(true);
     try {
-      const results = await searchRides(fromText, toText);
-      setRides(results.map(mapToRide));
+      // Only use date filter if user has explicitly selected a date
+      const searchDate = selectedDate || undefined;
+      const results = await searchRides(fromText, toText, searchDate);
+      const mappedRides = results.map(mapToRide);
+      // For sorting, use selected date or today's date
+      const sortDate = searchDate || new Date().toISOString().split('T')[0];
+      const sortedRides = sortRidesByDateRelevance(mappedRides, sortDate);
+      setRides(sortedRides);
       setJustCompletedSearch(true); // Flag to prevent onChange from showing recents
       setLastSearchTexts({from: fromText, to: toText}); // Store what we searched for
       await saveRecent(fromText);
@@ -136,16 +168,8 @@ export default function SearchRides() {
     } finally {
       setIsSearching(false);
     }
-  }, [fromText, toText, mapToRide, recents]);
+  }, [fromText, toText, selectedDate, mapToRide, sortRidesByDateRelevance, recents]);
 
-  const reloadRequests = () =>
-    getMyRideRequests()
-      .then(reqs => {
-        const m: Record<string, string> = {};
-        reqs.forEach(r => { m[r.ride_id] = r.status; });
-        setMyRequestsMap(m);
-      })
-      .catch(console.warn);
 
   const formatPillDate = useCallback((iso: string) => {
     const [y, m, d] = iso.split('-').map(Number);
@@ -171,10 +195,12 @@ export default function SearchRides() {
       {/* Inputs */}
       <View style={styles.inputs}>
         <View style={styles.inputShell}>
+          <Text style={styles.inputLabel}>Pick-up</Text>
           <LocationInput
             ref={fromInputRef}
             apiKey={apiKey}
             value={fromText}
+            placeholder="Enter pick-up location"
             onChange={(text) => {
               setFromText(text);
               // Only show recents if user is genuinely changing the text from what was searched
@@ -196,10 +222,12 @@ export default function SearchRides() {
         </View>
 
         <View style={styles.inputShell}>
+          <Text style={styles.inputLabel}>Drop-off</Text>
           <LocationInput
             ref={toInputRef}
             apiKey={apiKey}
             value={toText}
+            placeholder="Enter drop-off location"
             onChange={(text) => {
               setToText(text);
               // Only show recents if user is genuinely changing the text from what was searched
@@ -300,9 +328,8 @@ export default function SearchRides() {
               <RideCard
                 ride={item}
                 myProfileId={user?.id}
-                myRequestStatus={myRequestsMap[item.id] || null}
-                onRequestRide={reloadRequests}
-                // RideCard is restyled below to match mock
+                myRequestStatus={(item as any).myRequestStatus}
+                onRequestRide={() => handleSearch()}
               />
             )}
             contentContainerStyle={{ paddingBottom: 16 }}
@@ -344,6 +371,13 @@ const styles = StyleSheet.create({
 
   inputs: { marginTop: 12 },
   inputShell: { marginBottom: 12 },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
+    marginLeft: 2,
+  },
   textContainer: {
     borderWidth: 2,
     borderColor: purple,

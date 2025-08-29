@@ -40,7 +40,7 @@ export default function TabNavigator() {
         component={SearchRides} 
         options={{ headerShown: false }}
       />
-      <Tab.Screen name="My Rides" component={MyRides} />
+      <Tab.Screen name="My Rides" component={MyRides} options={{ headerShown: false }} />
       <Tab.Screen name="Messages" component={Messages} />
       <Tab.Screen name="Profile" component={UserProfile} />
     </Tab.Navigator>

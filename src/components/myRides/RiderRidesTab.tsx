@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FlatList, View, Text, RefreshControl } from 'react-native';
-import type { RideRequestItem } from '../../types';
-import RiderRideItem from './RiderRideItem';
+import type { RideRequestItem, Ride } from '../../types';
+import RideCard from '../searchRides/RideCard';
 import { getMyRideRequests } from '../../integrations/hopin-backend/rider';
+import { useAuth } from '../../contexts/AuthContext';
 
 type Props = {
   rideRequests?: RideRequestItem[];
@@ -15,8 +16,29 @@ export default function RiderRidesTab({
   loading,
   onRefresh,
 }: Props) {
+  const { user } = useAuth();
   const [local, setLocal] = useState<RideRequestItem[] | null>(rideRequests ?? null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Convert RideRequestItem to Ride format for RideCard
+  const convertToRide = useCallback((request: RideRequestItem): Ride & { myRequestStatus: string | null } => ({
+    id: request.ride_id,
+    driverId: '', // Not available in RideRequestItem
+    startLocation: request.start_location,
+    endLocation: request.end_location,
+    departureTime: request.departure_time,
+    availableSeats: request.available_seats,
+    pricePerSeat: request.price_per_seat,
+    status: request.status,
+    requests: [],
+    myRequestStatus: request.status,
+    driver: {
+      name: request.driver_name,
+      photo: null, // Not available in RideRequestItem
+      rating: 0, // Not available in RideRequestItem
+      totalRides: 0, // Not available in RideRequestItem
+    }
+  }), []);
 
   // Self-fetch if no data provided
   useEffect(() => {
@@ -50,7 +72,15 @@ export default function RiderRidesTab({
     <FlatList
       data={local ?? []}
       keyExtractor={(r) => r.request_id}
-      renderItem={({ item }) => <RiderRideItem request={item} />}
+      renderItem={({ item }) => (
+        <RideCard
+          ride={convertToRide(item)}
+          myProfileId={user?.id}
+          myRequestStatus={item.status}
+          onRequestRide={() => {}} // No-op since these are already requested rides
+          role="rider"
+        />
+      )}
       contentContainerStyle={{ paddingTop: 8, paddingBottom: 12 }}
       showsVerticalScrollIndicator={false}
       refreshControl={

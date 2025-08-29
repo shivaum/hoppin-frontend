@@ -17,6 +17,7 @@ type Props = {
   myProfileId?: string;
   myRequestStatus?: string | null;
   onRequestRide?: (rideId: string, message?: string) => void;
+  role?: 'search' | 'rider'; // Add role prop to determine navigation context
 };
 
 export default function RideCard({
@@ -24,6 +25,7 @@ export default function RideCard({
   myProfileId,
   myRequestStatus = null,
   onRequestRide,
+  role = 'search',
 }: Props) {
   const navigation = useNavigation<Nav>();
   const [loading, setLoading] = useState(false);
@@ -63,7 +65,7 @@ export default function RideCard({
 
   const openDetails = () => {
     navigation.navigate('RideDetails', {
-      role: 'search',
+      role: role,
       rideId: ride.id,
       start_location: ride.startLocation,
       end_location: ride.endLocation,

@@ -22,9 +22,8 @@ type Nav = NativeStackNavigationProp<MainStackParamList>;
 export default function MyRides() {
   const { user } = useAuth();
   const navigation = useNavigation<Nav>();
-  const [mode, setMode] = useState<Mode>('driver');
-
   const isDriver = !!user?.is_driver;
+  const [mode, setMode] = useState<Mode>(isDriver ? 'driver' : 'rider');
 
   const goToOfferRide = () => {
     navigation.navigate('OfferRide');
@@ -34,44 +33,52 @@ export default function MyRides() {
     <SafeAreaView style={styles.root}>
       {/* Header row */}
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.headerTextContainer}>
           <Text style={styles.title}>My rides</Text>
-          <Text style={styles.subtitle}>Your scheduled rides</Text>
+          <Text style={styles.subtitleSpaced}>Your scheduled rides</Text>
         </View>
 
         {isDriver && (
-          <TouchableOpacity
-            style={styles.offerBtn}
-            onPress={goToOfferRide}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Offer a ride"
-          >
-            <Text style={styles.offerBtnText}>Offer ride</Text>
-          </TouchableOpacity>
+          <View style={styles.offerRideContainer}>
+            <TouchableOpacity
+              style={styles.offerBtn}
+              onPress={goToOfferRide}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Offer a ride"
+            >
+              <Text style={styles.offerBtnText}>Offer ride</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
       {/* Segmented control */}
       <View style={styles.segmentWrap}>
-        <TouchableOpacity
-          style={[styles.segment, mode === 'driver' && styles.segmentActive]}
-          onPress={() => setMode('driver')}
-          activeOpacity={0.9}
-        >
-          <Ionicons
-            name="car"
-            size={16}
-            color={mode === 'driver' ? '#111827' : '#6B7280'}
-            style={{ marginRight: 8 }}
-          />
-          <Text style={[styles.segmentText, mode === 'driver' && styles.segmentTextActive]}>
-            I’m a driver
-          </Text>
-        </TouchableOpacity>
+        {isDriver && (
+          <TouchableOpacity
+            style={[styles.segment, mode === 'driver' && styles.segmentActive]}
+            onPress={() => setMode('driver')}
+            activeOpacity={0.9}
+          >
+            <Ionicons
+              name="car"
+              size={16}
+              color={mode === 'driver' ? '#111827' : '#6B7280'}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={[styles.segmentText, mode === 'driver' && styles.segmentTextActive]}>
+              I'm a driver
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
-          style={[styles.segment, mode === 'rider' && styles.segmentActive]}
+          style={[
+            styles.segment, 
+            mode === 'rider' && styles.segmentActive,
+            !isDriver && styles.segmentFullWidth
+          ]}
           onPress={() => setMode('rider')}
           activeOpacity={0.9}
         >
@@ -82,7 +89,7 @@ export default function MyRides() {
             style={{ marginRight: 8 }}
           />
           <Text style={[styles.segmentText, mode === 'rider' && styles.segmentTextActive]}>
-            I’m a rider
+            I'm a rider
           </Text>
         </TouchableOpacity>
       </View>
@@ -105,8 +112,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 16,
     marginBottom: 12,
+  },
+  headerTextContainer: {
+    paddingVertical: 8,
+    paddingLeft: 12,
+  },
+  offerRideContainer: {
+    paddingVertical: 8,
+    paddingRight: 12,
   },
   title: {
     fontSize: 28,
@@ -115,6 +130,11 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 2,
+    color: '#6B7280',
+    fontSize: 14,
+  },
+  subtitleSpaced: {
+    marginTop: 6,
     color: '#6B7280',
     fontSize: 14,
   },
@@ -132,6 +152,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginBottom: 12,
+    padding: 8,
+    paddingBottom: 0
   },
   segment: {
     flex: 1,
@@ -154,6 +176,10 @@ const styles = StyleSheet.create({
   },
   segmentTextActive: {
     color: '#111827',
+  },
+  segmentFullWidth: {
+    flex: 0,
+    width: '100%'
   },
   content: {
     flex: 1,

@@ -358,19 +358,14 @@ export default function RideDetails() {
 
             <View style={styles.itinRow}>
               <View style={styles.itinLeft}>
-                <View style={[styles.bullet, { backgroundColor: '#111827' }]} />
+                <Ionicons name="location" size={14} color="#6B7280" style={{ marginRight: 6 }} />
                 <Text style={styles.itinLabel}>From</Text>
               </View>
               <Text style={styles.itinTime}>{timeLabel}</Text>
             </View>
             <Text style={styles.itinAddress}>{startAddress}</Text>
 
-            <View style={styles.vertDividerWrap}>
-              <View style={styles.vertDot} />
-              <View style={styles.vertLine} />
-            </View>
-
-            <View style={[styles.itinRow, { marginTop: 8 }]}>
+            <View style={styles.itinRow}>
               <View style={styles.itinLeft}>
                 <Ionicons name="location" size={14} color="#6B7280" style={{ marginRight: 6 }} />
                 <Text style={styles.itinLabel}>To</Text>

@@ -24,6 +24,7 @@ export interface SearchRide {
   available_seats: number;
   price_per_seat: number;
   status: string;
+  my_request_status: string | null; // null | "pending" | "accepted" | "rejected" | "declined"
   driver: {
     id?: string;
     name: string;
@@ -101,27 +102,6 @@ export interface DriverRide {
 }
 
 /** ------------------------------------------------------------------------
- *  What rider “search_rides” returns
- *  ------------------------------------------------------------------------ */
-export interface SearchRide {
-  ride_id: string;
-  driver_id: string;
-  start_location: string;
-  end_location: string;
-  departure_time: string;       // ISO
-  available_seats: number;
-  price_per_seat: number;
-  status: string;
-  driver: {
-    id?: string;
-    name: string;
-    photo: string | null;
-    rating: number;
-    total_rides?: number;
-  };
-}
-
-/** ------------------------------------------------------------------------
  *  Payload when requesting a ride (rider → POST /rider/request_ride)
  *  ------------------------------------------------------------------------ */
 export interface RequestRidePayload {
@@ -148,6 +128,8 @@ export interface RideRequestItem {
   departure_time: string;       // ISO
   status: "pending" | "accepted" | "declined" | "rejected";
   driver_name: string;
+  price_per_seat: number;
+  available_seats: number;
   pickup: {
     use_driver: boolean;
     location: string | null;

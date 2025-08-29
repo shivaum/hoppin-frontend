@@ -1,4 +1,5 @@
 // src/components/offerRides/LocationInput.tsx
+import 'react-native-get-random-values';
 import React, { forwardRef, useState } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
@@ -10,13 +11,14 @@ type Props = {
   onChange: (val: string) => void;
   onSelect: (address: string, coords: LatLng) => void;
   apiKey: string;
+  placeholder?: string;
   onClear?: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
 };
 
 export default forwardRef<any, Props>(function LocationInput(
-  { value, onChange, onSelect, apiKey, onClear, onFocus, onBlur },
+  { value, onChange, onSelect, apiKey, placeholder = "", onClear, onFocus, onBlur },
   ref
 ) {
   const [focused, setFocused] = useState(false);
@@ -26,7 +28,7 @@ export default forwardRef<any, Props>(function LocationInput(
       <View style={[styles.box, focused && styles.boxFocused]}>
         <GooglePlacesAutocomplete
         ref={ref}
-        placeholder=""
+        placeholder={placeholder}
         fetchDetails
         minLength={2}
         debounce={250}

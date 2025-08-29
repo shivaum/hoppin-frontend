@@ -15,15 +15,19 @@ async function safeJson(res: Response): Promise<any> {
 }
 
 /**
- * Search for available rides matching from/to
+ * Search for available rides matching from/to and date
  */
 export async function searchRides(
   from: string,
-  to: string
+  to: string,
+  date?: string
 ): Promise<SearchRide[]> {
-  const res = await authorizedFetch(
-    `${API_URL}/rider/search_rides?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-  );
+  let url = `${API_URL}/rider/search_rides?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+  if (date) {
+    url += `&date=${encodeURIComponent(date)}`;
+  }
+  
+  const res = await authorizedFetch(url);
   if (!res.ok) {
     const err = await safeJson(res);
     throw new Error(err.error || "Failed to search rides");
