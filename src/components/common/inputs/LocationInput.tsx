@@ -1,6 +1,6 @@
 // src/components/offerRides/LocationInput.tsx
 import 'react-native-get-random-values';
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useState, useRef, useEffect } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 
@@ -22,12 +22,24 @@ export default forwardRef<any, Props>(function LocationInput(
   ref
 ) {
   const [focused, setFocused] = useState(false);
+  const internalRef = useRef<any>(null);
+  
+  // Use the ref passed from parent or create our own
+  const autocompleteRef = ref || internalRef;
+
+  // Set the initial value when component mounts or value changes
+  useEffect(() => {
+    const refCurrent = typeof autocompleteRef === 'function' ? null : autocompleteRef.current;
+    if (value && refCurrent) {
+      refCurrent.setAddressText(value);
+    }
+  }, [value]);
 
   return (
     <View style={[styles.wrapper, focused && styles.wrapperFocused]}>
       <View style={[styles.box, focused && styles.boxFocused]}>
         <GooglePlacesAutocomplete
-        ref={ref}
+        ref={autocompleteRef}
         placeholder={placeholder}
         fetchDetails
         minLength={2}
@@ -97,9 +109,10 @@ export default forwardRef<any, Props>(function LocationInput(
             style={styles.clearButton} 
             onPress={() => {
               // Clear the GooglePlacesAutocomplete component directly
-              if (ref && typeof ref === 'object' && ref.current) {
-                ref.current.setAddressText('');
-                ref.current.clear();
+              const refCurrent = typeof autocompleteRef === 'function' ? null : autocompleteRef.current;
+              if (refCurrent) {
+                refCurrent.setAddressText('');
+                refCurrent.clear();
               }
               onChange('');
               onClear?.();

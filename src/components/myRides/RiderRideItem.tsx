@@ -6,6 +6,7 @@ import { StatusBadge } from '../common/indicators/StatusBadge';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/types';
+import { formatDateShort, formatTime } from '../../utils/dateTime';
 
 type Props = {
   request: RideRequestItem;
@@ -13,10 +14,7 @@ type Props = {
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
 
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+// Using utility functions from dateTime.ts
 
 export default function RiderRideItem({ request: b }: Props) {
   const navigation = useNavigation<Nav>();
@@ -75,7 +73,7 @@ export default function RiderRideItem({ request: b }: Props) {
         <View style={styles.metaRow}>
           <Ionicons name="time" size={14} color="#6B7280" />
           <Text style={styles.metaText}>
-            {fmtDate(b.departure_time)} at {fmtTime(b.departure_time)}
+            {formatDateShort(b.departure_time)} at {formatTime(b.departure_time)}
           </Text>
         </View>
 

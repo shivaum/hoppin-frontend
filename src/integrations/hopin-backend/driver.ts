@@ -82,3 +82,38 @@ export async function declineRideRequest(
   }
   return res.json();
 }
+
+/**
+ * Fetch a single ride's current details
+ */
+export async function getRideDetails(rideId: string): Promise<DriverRide> {
+  const res = await authorizedFetch(`${API_URL}/driver/ride/${rideId}/details`);
+  if (!res.ok) {
+    const err = await safeJson(res);
+    throw new Error(err.error || "Failed to fetch ride details");
+  }
+  const data = await res.json();
+  return data.ride || data;
+}
+
+/**
+ * Update a ride's details
+ */
+export async function updateRide(rideId: string, updateData: {
+  start_location?: string;
+  end_location?: string;
+  departure_time?: string;
+  available_seats?: number;
+  price_per_seat?: number;
+}): Promise<{ message: string }> {
+  const res = await authorizedFetch(`${API_URL}/driver/ride/${rideId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updateData),
+  });
+  if (!res.ok) {
+    const err = await safeJson(res);
+    throw new Error(err.error || "Failed to update ride");
+  }
+  return res.json();
+}

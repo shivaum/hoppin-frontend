@@ -9,6 +9,7 @@ import type { MainStackParamList } from '../../navigation/types';
 import Toast from 'react-native-toast-message';
 import { requestRide } from '../../integrations/hopin-backend/rider';
 import { calculateTravelTime } from '../../utils/travelTime';
+import { formatTime } from '../../utils/dateTime';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
 
@@ -34,10 +35,7 @@ export default function RideCard({
 
   const isOwn = !!myProfileId && myProfileId === ride.driverId;
 
-  const fmtT = (iso: string) =>
-    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  const timePickup = useMemo(() => fmtT(ride.departureTime), [ride.departureTime]);
+  const timePickup = useMemo(() => formatTime(ride.departureTime), [ride.departureTime]);
 
   // Calculate estimated drop-off time
   useEffect(() => {
@@ -50,7 +48,7 @@ export default function RideCard({
       
       if (result) {
         setArrivalISO(result.estimatedArrival);
-        setDropOffTime(fmtT(result.estimatedArrival));
+        setDropOffTime(formatTime(result.estimatedArrival));
       }
     };
 

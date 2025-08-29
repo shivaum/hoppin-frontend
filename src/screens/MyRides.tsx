@@ -1,5 +1,5 @@
 // src/screens/MyRides.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -24,6 +24,15 @@ export default function MyRides() {
   const navigation = useNavigation<Nav>();
   const isDriver = !!user?.is_driver;
   const [mode, setMode] = useState<Mode>(isDriver ? 'driver' : 'rider');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const driverTabRef = useRef<any>(null);
+
+  // Refresh data when screen comes into focus (e.g., returning from EditRide)
+  useFocusEffect(
+    React.useCallback(() => {
+      setRefreshTrigger(prev => prev + 1);
+    }, [])
+  );
 
   const goToOfferRide = () => {
     navigation.navigate('OfferRide');
@@ -96,7 +105,11 @@ export default function MyRides() {
 
       {/* Content */}
       <View style={styles.content}>
-        {mode === 'driver' ? <DriverRidesTab /> : <RiderRidesTab />}
+        {mode === 'driver' ? (
+          <DriverRidesTab refreshTrigger={refreshTrigger} />
+        ) : (
+          <RiderRidesTab />
+        )}
       </View>
     </SafeAreaView>
   );

@@ -7,19 +7,16 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/types';
 import { calculateTravelTime } from '../../utils/travelTime';
+import { formatDateShort, formatTime } from '../../utils/dateTime';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
 
 type Props = {
   ride: DriverRide;
-  onAction: (requestId: string, action: 'accepted' | 'declined') => void; // kept for future actions
+  onAction: (requestId: string, action: 'accepted' | 'declined') => void;
 };
 
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
-
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+// Remove old formatting functions - now using utils
 
 const extractShort = (addr?: string) => {
   if (!addr) return '';
@@ -33,7 +30,7 @@ export default function DriverRideItem({ ride }: Props) {
 
   const titleLeft = extractShort(ride.start_location);
   const titleRight = extractShort(ride.end_location);
-  const dateLabel = `${fmtDate(ride.departure_time)}, ${fmtTime(ride.departure_time)}`;
+  const dateLabel = `${formatDateShort(ride.departure_time)}, ${formatTime(ride.departure_time)}`;
 
   // Calculate estimated drop-off time
   useEffect(() => {
@@ -45,22 +42,25 @@ export default function DriverRideItem({ ride }: Props) {
       );
       
       if (result) {
-        setDropOffTime(fmtTime(result.estimatedArrival));
+        setDropOffTime(formatTime(result.estimatedArrival));
       }
     };
 
     calculateDropOff();
   }, [ride.start_location, ride.end_location, ride.departure_time]);
 
-  // first 3 riders (pending/accepted) for overlapping avatars
-  const riders = useMemo(() => {
-    const list = (ride.requests ?? [])
-      .filter(r => r.status === 'pending' || r.status === 'accepted')
-      .slice(0, 3)
-      .map(r => r.rider?.photo)
-      .filter(Boolean) as string[];
-    return list;
+  // all riders (pending + accepted) for display
+  const allRiders = useMemo(() => {
+    const requests = (ride.requests ?? []).filter(r => r.status === 'pending' || r.status === 'accepted');
+    return requests.slice(0, 3).map(r => ({
+      photo: r.rider?.photo,
+      name: r.rider?.name,
+      status: r.status
+    }));
   }, [ride.requests]);
+
+  const totalRequestCount = (ride.requests ?? []).filter(r => r.status === 'pending' || r.status === 'accepted').length;
+  const pendingCount = (ride.requests ?? []).filter(r => r.status === 'pending').length;
 
   const goToDetails = () => {
     navigation.navigate('EditRide', {
@@ -91,7 +91,7 @@ export default function DriverRideItem({ ride }: Props) {
         <View style={styles.row}>
           <View style={[styles.dot, { backgroundColor: '#3B82F6' }]} />
           <Text style={styles.smallLabel}>Pick-up</Text>
-          <Text style={styles.time}>{fmtTime(ride.departure_time)}</Text>
+          <Text style={styles.time}>{formatTime(ride.departure_time)}</Text>
         </View>
         <View style={styles.row}>
           <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
@@ -121,22 +121,45 @@ export default function DriverRideItem({ ride }: Props) {
         {/* Riders info */}
         <View style={styles.ridersInfo}>
           <View style={styles.avatarsRow}>
-            {riders.length === 0 ? (
+            {allRiders.length === 0 ? (
               <View style={[styles.avatar, styles.avatarFallback]}>
                 <Ionicons name="person-outline" size={12} color="#9CA3AF" />
               </View>
             ) : (
-              riders.map((uri, idx) => (
-                <Image
-                  key={`${uri}-${idx}`}
-                  source={{ uri }}
-                  style={[styles.avatar, idx > 0 && { marginLeft: -8 }]}
-                />
+              allRiders.map((rider, idx) => (
+                rider.photo ? (
+                  <Image
+                    key={`${rider.photo}-${idx}`}
+                    source={{ uri: rider.photo }}
+                    style={[
+                      styles.avatar, 
+                      idx > 0 && { marginLeft: -8 },
+                      rider.status === 'pending' && styles.pendingAvatar
+                    ]}
+                  />
+                ) : (
+                  <View
+                    key={`fallback-${idx}`}
+                    style={[
+                      styles.avatar, 
+                      styles.avatarFallback, 
+                      idx > 0 && { marginLeft: -8 },
+                      rider.status === 'pending' && styles.pendingAvatar
+                    ]}
+                  >
+                    <Text style={styles.avatarText}>
+                      {rider.name?.charAt(0) || '?'}
+                    </Text>
+                  </View>
+                )
               ))
             )}
           </View>
           <Text style={styles.ridersText}>
-            {riders.length} rider{riders.length !== 1 ? 's' : ''}
+            {totalRequestCount > 0 
+              ? `${totalRequestCount} rider${totalRequestCount !== 1 ? 's' : ''}${pendingCount > 0 ? ` (${pendingCount} pending)` : ''}`
+              : 'No riders yet'
+            }
           </Text>
         </View>
         
@@ -201,6 +224,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F3F4F6',
   },
+  pendingAvatar: {
+    borderColor: '#F59E0B',
+    borderWidth: 2,
+  },
+  avatarText: { color: '#6B7280', fontSize: 10, fontWeight: '600' },
   ridersText: { color: '#6B7280', fontSize: 10, textAlign: 'center' },
 
   price: { color: purple, fontWeight: '700' },

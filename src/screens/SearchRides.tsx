@@ -22,6 +22,7 @@ import LocationInput, { LatLng } from '../components/common/inputs/LocationInput
 import { GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
 import SubmitButton from '../components/common/buttons/SubmitButton';
 import CalendarModal from '../components/common/modals/CalendarModal';
+import { formatDateShort } from '../utils/dateTime';
 
 const MAX_RECENTS = 4;
 
@@ -171,11 +172,7 @@ export default function SearchRides() {
   }, [fromText, toText, selectedDate, mapToRide, sortRidesByDateRelevance, recents]);
 
 
-  const formatPillDate = useCallback((iso: string) => {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric' });
-  }, []);
-  const dateBtnLabel = selectedDate ? formatPillDate(selectedDate) : 'Select date';
+  const dateBtnLabel = selectedDate ? formatDateShort(selectedDate + 'T00:00:00') : 'Select date';
 
   const hasInputs = fromText.trim().length > 0 || toText.trim().length > 0;
 

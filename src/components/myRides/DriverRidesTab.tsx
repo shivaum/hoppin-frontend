@@ -14,6 +14,7 @@ type Props = {
   onAction?: (requestId: string, action: 'accepted' | 'declined') => void;
   loading?: boolean;
   onRefresh?: () => void;
+  refreshTrigger?: number;
 };
 
 export default function DriverRidesTab({
@@ -21,6 +22,7 @@ export default function DriverRidesTab({
   onAction,
   loading,
   onRefresh,
+  refreshTrigger,
 }: Props) {
   const [local, setLocal] = useState<DriverRide[] | null>(driverRides ?? null);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,7 +41,7 @@ export default function DriverRidesTab({
       setLocal(driverRides);
     }
     return () => { mounted = false; };
-  }, [driverRides]);
+  }, [driverRides, refreshTrigger]);
 
   const selfRefresh = async () => {
     const data = await getMyDriverRides();
