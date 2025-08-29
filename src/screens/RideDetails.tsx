@@ -299,7 +299,12 @@ export default function RideDetails() {
       {/* Map (kept interactive; sheet sits on top) */}
       <View style={styles.mapWrap}>
         {hasCoords ? (
-          <Map start={startFinal!} end={endFinal!} />
+          <Map 
+            start={startFinal!} 
+            end={endFinal!} 
+            startAddress={startAddress}
+            endAddress={endAddress}
+          />
         ) : (
           <View style={styles.mapFallback}>
             <Text style={{ color: '#6B7280' }}>No map coordinates</Text>

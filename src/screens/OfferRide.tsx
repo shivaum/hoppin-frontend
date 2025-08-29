@@ -105,6 +105,38 @@ export default function OfferRide() {
   const haveStart = !!pickup && Number.isFinite(pickup.lat) && Number.isFinite(pickup.lng);
   const haveEnd   = !!dropoff   && Number.isFinite(dropoff.lat)   && Number.isFinite(dropoff.lng);
 
+  // Calculate appropriate map region based on selected locations
+  const mapRegion = useMemo(() => {
+    if (haveStart && haveEnd) {
+      // Both points - show route with padding
+      const latPadding = Math.abs(pickup!.lat - dropoff!.lat) * 0.5 || 0.01;
+      const lngPadding = Math.abs(pickup!.lng - dropoff!.lng) * 0.5 || 0.01;
+      return {
+        latitude: (pickup!.lat + dropoff!.lat) / 2,
+        longitude: (pickup!.lng + dropoff!.lng) / 2,
+        latitudeDelta: Math.max(latPadding * 2, 0.02),
+        longitudeDelta: Math.max(lngPadding * 2, 0.02),
+      };
+    } else if (haveStart) {
+      // Only pickup - zoom in on pickup location
+      return {
+        latitude: pickup!.lat,
+        longitude: pickup!.lng,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+    } else if (haveEnd) {
+      // Only dropoff - zoom in on dropoff location
+      return {
+        latitude: dropoff!.lat,
+        longitude: dropoff!.lng,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+    }
+    return undefined; // No region - will use default
+  }, [haveStart, haveEnd, pickup, dropoff]);
+
   return (
     <View style={styles.root}>
       {/* Map background */}
@@ -114,6 +146,9 @@ export default function OfferRide() {
           <Map
             start={haveStart ? { latitude: pickup!.lat, longitude: pickup!.lng } : { latitude: 0, longitude: 0 }}
             end={haveEnd ? { latitude: dropoff!.lat, longitude: dropoff!.lng } : { latitude: 0, longitude: 0 }}
+            startAddress={pickupText}
+            endAddress={dropoffText}
+            region={mapRegion}
           />
         ) : (
           // fallback region / placeholder

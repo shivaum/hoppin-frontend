@@ -83,14 +83,14 @@ export default forwardRef<any, Props>(function LocationInput(
           listView: { 
             backgroundColor: '#fff', 
             borderRadius: 12, 
-            marginTop: 4, // Reduced gap between input and dropdown
-            position: 'absolute', // Position outside the input container
-            top: '100%', // Position right below the input box
+            marginTop: 4,
+            position: 'absolute',
+            top: '100%',
             left: 0,
             right: 0,
-            zIndex: 5000, // Very high z-index to cover everything below
-            elevation: 10, // For Android
-            maxHeight: 200, // Limit height so it doesn't take up whole screen
+            zIndex: 5000,
+            elevation: 10,
+            maxHeight: 200,
             borderWidth: 1,
             borderColor: '#E5E7EB',
             shadowColor: '#000',

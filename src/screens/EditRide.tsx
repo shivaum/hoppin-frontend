@@ -36,6 +36,13 @@ export default function EditRide() {
   const [departureISO, setDepartureISO] = useState(params.departureISO);
   const [departureDate, setDepartureDate] = useState(parseAsLocalTime(params.departureISO));
   
+  // Track original values to detect changes
+  const [originalValues] = useState({
+    pickup: params.start_address || '',
+    dropoff: params.end_address || '',
+    departureISO: params.departureISO,
+  });
+  
   // date/time picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -201,6 +208,19 @@ export default function EditRide() {
   };
 
   // Using utility function from dateTime.ts
+  
+  // Check if any fields have been modified
+  const hasChanges = () => {
+    return (
+      pickup !== originalValues.pickup ||
+      dropoff !== originalValues.dropoff ||
+      departureISO !== originalValues.departureISO
+    );
+  };
+
+  const handleCancel = () => {
+    navigation.goBack();
+  };
 
   const saveChanges = async () => {
     if (isSaving) return;
@@ -228,7 +248,12 @@ export default function EditRide() {
     <View style={styles.root}>
       {/* Map (full-screen) */}
       <View style={styles.mapWrap}>
-        <Map start={start || { latitude: 0, longitude: 0 }} end={end || { latitude: 0, longitude: 0 }} />
+        <Map 
+          start={start || { latitude: 0, longitude: 0 }} 
+          end={end || { latitude: 0, longitude: 0 }} 
+          startAddress={pickup || params.start_address}
+          endAddress={dropoff || params.end_address}
+        />
       </View>
 
       {/* Back button */}
@@ -239,7 +264,12 @@ export default function EditRide() {
       {/* Draggable sheet */}
       <Animated.View style={[styles.sheet, { height: sheetH }]} {...pan.panHandlers}>
         <View style={styles.handle} />
-        <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={styles.sheetContent} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+        >
           <Text style={styles.sheetTitle}>Edit ride</Text>
 
           <Text style={styles.label}>Pick up</Text>
@@ -360,15 +390,31 @@ export default function EditRide() {
             </>
           )}
 
-          <TouchableOpacity 
-            style={[styles.cta, isSaving && styles.ctaDisabled]} 
-            onPress={saveChanges}
-            disabled={isSaving}
-          >
-            <Text style={styles.ctaText}>
-              {isSaving ? 'Saving...' : 'Save changes'}
-            </Text>
-          </TouchableOpacity>
+          {/* Action buttons */}
+          <View style={styles.buttonRow}>
+            <TouchableOpacity 
+              style={styles.cancelBtn} 
+              onPress={handleCancel}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[
+                styles.saveBtn, 
+                (!hasChanges() || isSaving) && styles.saveBtnDisabled
+              ]} 
+              onPress={saveChanges}
+              disabled={!hasChanges() || isSaving}
+            >
+              <Text style={[
+                styles.saveBtnText,
+                (!hasChanges() || isSaving) && styles.saveBtnTextDisabled
+              ]}>
+                {isSaving ? 'Saving...' : 'Save changes'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </Animated.View>
     </View>
@@ -454,12 +500,43 @@ const styles = StyleSheet.create({
     fontSize: 14 
   },
 
-  cta: {
-    marginTop: 16, height: 48, borderRadius: 12,
-    backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center',
+  buttonRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 12,
   },
-  ctaDisabled: {
+  cancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#7C3AED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnDisabled: {
     backgroundColor: '#9CA3AF',
   },
-  ctaText: { color: '#fff', fontWeight: '700' },
+  saveBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  saveBtnTextDisabled: {
+    color: '#D1D5DB',
+  },
 });
