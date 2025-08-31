@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
+import { colors } from '../../constants/colors';
 import type { Conversation, Message, User } from "../../types";
 
 type Props = {
@@ -74,17 +75,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   sender: {
-    backgroundColor: "#2f95dc", // your primary color
+    backgroundColor: colors.primary.purple,
   },
   receiver: {
-    backgroundColor: "#e5e5ea",
+    backgroundColor: colors.neutral.gray100,
   },
   senderText: {
-    color: "white",
-    fontSize: 14,
+    color: colors.neutral.white,
+    fontSize: 16,
   },
   receiverText: {
-    color: "#333",
-    fontSize: 14,
+    color: colors.neutral.gray900,
+    fontSize: 16,
   },
 });

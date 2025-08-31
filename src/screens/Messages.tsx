@@ -47,23 +47,28 @@ export default function Messages() {
       const data = await fetchUserConversations();
       
       // Transform the data to match our interface
-      // This is a mock transformation - you'll need to adjust based on your actual API response
-      const transformedConversations: MessageConversation[] = data.map((conv: any) => ({
-        id: conv.id || `${conv.rideId}-${conv.otherUser.id}`,
-        otherUser: conv.otherUser,
-        ride: {
-          id: conv.rideId,
-          departure_time: conv.ride?.departure_time || new Date().toISOString(),
-          start_location: conv.ride?.start_location || 'Unknown',
-          end_location: conv.ride?.end_location || 'Unknown',
-        },
-        lastMessage: {
-          content: conv.lastMessage?.content || 'No messages yet',
-          created_at: conv.lastMessage?.created_at || new Date().toISOString(),
-        },
-        status: conv.status || 'pending' as MessageStatus,
-        userRole: conv.userRole || (conv.ride?.driver_id === user?.id ? 'driver' : 'rider'),
-      }));
+      const transformedConversations: MessageConversation[] = data.map((conv: any) => {
+        // rideDetails.type indicates OTHER user's role, so invert it for current user's role
+        const otherUserRole = conv.rideDetails?.type;
+        const currentUserRole = otherUserRole === 'driver' ? 'rider' : 'driver';
+        
+        return {
+          id: `${conv.rideId}-${conv.otherUser.id}`,
+          otherUser: conv.otherUser,
+          ride: {
+            id: conv.rideId,
+            departure_time: conv.rideDetails?.date ? `${conv.rideDetails.date}T00:00:00.000Z` : new Date().toISOString(),
+            start_location: conv.rideDetails?.route?.split(' → ')[0] || 'Unknown',
+            end_location: conv.rideDetails?.route?.split(' → ')[1] || 'Unknown',
+          },
+          lastMessage: {
+            content: conv.lastMessage?.content || 'No messages yet',
+            created_at: conv.lastMessage?.timestamp || new Date().toISOString(),
+          },
+          status: (conv.status === 'pending' ? 'pending' : conv.status === 'accepted' ? 'confirmed' : conv.status === 'declined' ? 'cancelled' : 'pending') as MessageStatus,
+          userRole: currentUserRole,
+        };
+      });
 
       setConversations(transformedConversations);
     } catch (error) {
@@ -97,12 +102,7 @@ export default function Messages() {
   };
 
   const handleConversationPress = (conversation: MessageConversation) => {
-    // TODO: Navigate to chat screen
-    Toast.show({
-      type: 'info',
-      text1: 'Chat Feature',
-      text2: 'Opening chat functionality coming soon',
-    });
+    navigation.navigate('Chat', { conversation });
   };
 
   const handleRideHeaderPress = (conversation: MessageConversation) => {

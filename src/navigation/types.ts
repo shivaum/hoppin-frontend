@@ -45,6 +45,28 @@ export type EditRide = {
 export type MainStackParamList = {
   Tabs: undefined;
   RideDetails: RideDetailsParams;
+  Chat: {
+    conversation: {
+      id: string;
+      otherUser: {
+        id: string;
+        name: string;
+        photo?: string;
+      };
+      ride: {
+        id: string;
+        departure_time: string;
+        start_location: string;
+        end_location: string;
+      };
+      lastMessage: {
+        content: string;
+        created_at: string;
+      };
+      status: 'confirmed' | 'pending' | 'cancelled';
+      userRole: 'driver' | 'rider';
+    };
+  };
   DriverVerificationRequirements: undefined;
   DriverVerificationUpload: undefined;
   OfferRide: undefined;

@@ -3,6 +3,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
 import RideDetails from '../screens/RideDetails';
+import Chat from '../screens/Chat';
 import DriverVerificationRequirements from '../screens/DriverVerificationRequirements';
 import DriverVerificationUpload from '../screens/DriverVerificationUpload';
 import OfferRide from '../screens/OfferRide';
@@ -20,6 +21,10 @@ export default function MainStack() {
       <Stack.Screen
         name="RideDetails"
         component={RideDetails}
+      />
+      <Stack.Screen
+        name="Chat"
+        component={Chat}
       />
       <Stack.Screen
         name="OfferRide"
