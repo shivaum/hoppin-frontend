@@ -22,6 +22,12 @@ export interface MessageConversation {
     departure_time: string;
     start_location: string;
     end_location: string;
+    start_lat?: number;
+    start_lng?: number;
+    end_lat?: number;
+    end_lng?: number;
+    price_per_seat?: number;
+    available_seats?: number;
   };
   lastMessage: {
     content: string;

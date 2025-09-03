@@ -448,6 +448,40 @@ export default function RideDetails() {
                 <Text style={styles.secondaryText}>Cancel ride</Text>
               </TouchableOpacity>
               <TouchableOpacity
+                style={styles.primary}
+                onPress={() => {
+                  const conversation = {
+                    id: `${rideId}-${params.otherUserId || 'unknown'}`,
+                    otherUser: {
+                      id: params.otherUserId || '',
+                      name: role === 'rider' ? driverName : params.riderName || 'Rider',
+                      photo: role === 'rider' ? driverPhoto : params.riderPhoto,
+                    },
+                    ride: {
+                      id: rideId,
+                      departure_time: departureISO,
+                      start_location: startAddress,
+                      end_location: endAddress,
+                      start_lat: startFinal?.latitude,
+                      start_lng: startFinal?.longitude,
+                      end_lat: endFinal?.latitude,
+                      end_lng: endFinal?.longitude,
+                      price_per_seat: pricePerSeat,
+                      available_seats: availableSeats,
+                    },
+                    lastMessage: {
+                      content: 'No messages yet',
+                      created_at: new Date().toISOString(),
+                    },
+                    status: status === 'accepted' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled',
+                    userRole: role === 'driver' ? 'driver' : 'rider',
+                  };
+                  navigation.navigate('Chat', { conversation });
+                }}
+              >
+                <Text style={styles.primaryText}>Messages for ride</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={[styles.primary, (loading || !canContact) && { opacity: 0.6 }]}
                 onPress={handleContact}
                 disabled={loading || !canContact}

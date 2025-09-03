@@ -57,9 +57,15 @@ export default function Messages() {
           otherUser: conv.otherUser,
           ride: {
             id: conv.rideId,
-            departure_time: conv.rideDetails?.date ? `${conv.rideDetails.date}T00:00:00.000Z` : new Date().toISOString(),
-            start_location: conv.rideDetails?.route?.split(' → ')[0] || 'Unknown',
-            end_location: conv.rideDetails?.route?.split(' → ')[1] || 'Unknown',
+            departure_time: conv.ride?.departure_time || new Date().toISOString(),
+            start_location: conv.ride?.start_location || 'Unknown',
+            end_location: conv.ride?.end_location || 'Unknown',
+            start_lat: conv.ride?.start_lat,
+            start_lng: conv.ride?.start_lng,
+            end_lat: conv.ride?.end_lat,
+            end_lng: conv.ride?.end_lng,
+            price_per_seat: conv.ride?.price_per_seat,
+            available_seats: conv.ride?.available_seats,
           },
           lastMessage: {
             content: conv.lastMessage?.content || 'No messages yet',
