@@ -107,27 +107,10 @@ export default function Chat() {
   };
 
   const handleRideDetailsPress = () => {
-    // Navigate to RideDetails with proper params
+    // Navigate to RideDetails using new simplified approach
     navigation.navigate('RideDetails', {
-      mode: conversation.userRole === 'driver' ? 'driver' : 'rider',
       rideId: conversation.ride.id,
-      driverName: conversation.userRole === 'driver' ? user?.name || '' : conversation.otherUser.name,
-      riderName: conversation.userRole === 'rider' ? user?.name || '' : conversation.otherUser.name,
-      otherUserId: conversation.otherUser.id,
-      start: { 
-        latitude: conversation.ride.start_lat || 0, 
-        longitude: conversation.ride.start_lng || 0, 
-        address: conversation.ride.start_location 
-      },
-      end: { 
-        latitude: conversation.ride.end_lat || 0, 
-        longitude: conversation.ride.end_lng || 0, 
-        address: conversation.ride.end_location 
-      },
-      departureISO: conversation.ride.departure_time,
-      pricePerSeat: conversation.ride.price_per_seat || 0,
-      availableSeats: conversation.ride.available_seats || 1,
-      status: conversation.status === 'pending' ? 'pending' : conversation.status === 'confirmed' ? 'accepted' : 'declined',
+      source: conversation.userRole === 'driver' ? 'driver' : 'rider'
     });
   };
 

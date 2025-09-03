@@ -7,21 +7,10 @@ export type RootStackParamList = {
   MainStack: undefined; // contains tabs + RideDetails
 };
 
-// Normalized, single source-of-truth params for RideDetails
+// Simplified params for RideDetails - now fetches data via API
 export type RideDetailsParams = {
-  mode: 'search' | 'rider' | 'driver';
   rideId: string;
-
-  driverName: string;
-  start: { latitude: number; longitude: number; address: string };
-  end:   { latitude: number; longitude: number; address: string };
-
-  departureISO: string;
-  pricePerSeat: number;
-  availableSeats: number;
-
-  status?: 'pending' | 'accepted' | 'declined' | 'available';
-  requestId?: string;
+  source?: 'search' | 'rider' | 'driver'; // Context of where user navigated from
 };
 
 

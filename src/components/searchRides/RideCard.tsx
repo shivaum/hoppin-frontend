@@ -64,19 +64,8 @@ export default function RideCard({
 
   const openDetails = () => {
     navigation.navigate('RideDetails', {
-      role: role,
       rideId: ride.id,
-      start_location: ride.startLocation,
-      end_location: ride.endLocation,
-      departure_time: ride.departureTime,
-      arrival_time: arrivalISO,
-      price_per_seat: ride.pricePerSeat,
-      available_seats: ride.availableSeats,
-      driver_name: ride.driver.name,
-      driver_photo: ride.driver.photo,
-      driver_rating: ride.driver.rating,
-      status: detailsStatus,
-      myRequestStatus: myRequestStatus, // Pass the request status to details
+      source: 'search', // Indicate this came from search results
     } as any);
   };
 

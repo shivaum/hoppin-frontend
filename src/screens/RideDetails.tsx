@@ -16,10 +16,11 @@ import type { MainStackParamList } from '../navigation/types';
 import Map from '../components/common/map/Map';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { requestRide } from '../integrations/hopin-backend/rider';
+import { requestRide, getRideDetails } from '../integrations/hopin-backend/rider';
 import { declineRideRequest } from '../integrations/hopin-backend/driver';
 import type { LatLng } from 'react-native-maps';
 import { GOOGLE_MAPS_API_KEY } from '@env';
+import { calculateTravelTime } from '../utils/travelTime';
 
 type Route = RouteProp<MainStackParamList, 'RideDetails'>;
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
@@ -64,45 +65,97 @@ export default function RideDetails() {
   const { params } = useRoute<Route>();
   const navigation = useNavigation<Nav>();
   const [loading, setLoading] = useState(false);
+  const [rideData, setRideData] = useState<any>(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // TIME
-  const departureISO =
-    (params as any).departureISO ?? (params as any).departure_time;
-  const arrivalISO =
-    (params as any).arrivalISO ?? (params as any).arrival_time;
+  // Extract ride ID from params
+  const rideId = (params as any).rideId;
 
-  const { dateLabel, timeLabel, arrTimeLabel } = useMemo(() => {
-    const d = departureISO ? new Date(departureISO) : new Date();
-    const a = arrivalISO ? new Date(arrivalISO) : null;
+  // Fetch ride details when component mounts
+  useEffect(() => {
+    const fetchRideDetails = async () => {
+      if (!rideId) {
+        setError('No ride ID provided');
+        setLoadingData(false);
+        return;
+      }
+
+      try {
+        setLoadingData(true);
+        setError(null);
+        const data = await getRideDetails(rideId);
+        console.log('🚗 Ride Details API Response:', JSON.stringify(data, null, 2));
+        setRideData(data);
+      } catch (err: any) {
+        console.error('Failed to fetch ride details:', err);
+        setError(err.message || 'Failed to load ride details');
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    fetchRideDetails();
+  }, [rideId]);
+
+  // Calculate estimated arrival time when ride data is available
+  useEffect(() => {
+    const calculateETA = async () => {
+      if (!rideData?.ride) return;
+
+      try {
+        const result = await calculateTravelTime(
+          rideData.ride.start_location,
+          rideData.ride.end_location,
+          rideData.ride.departure_time
+        );
+        
+        if (result) {
+          // Store the calculated arrival time for use in the component
+          setRideData(prev => ({
+            ...prev!,
+            calculated_arrival: result.estimatedArrival
+          }));
+        }
+      } catch (err) {
+        console.log('Failed to calculate ETA:', err);
+      }
+    };
+
+    calculateETA();
+  }, [rideData?.ride.start_location, rideData?.ride.end_location, rideData?.ride.departure_time]);
+
+  // TIME - computed from API data
+  const { dateLabel, timeLabel, arrTimeLabel, departureISO, arrivalISO } = useMemo(() => {
+    if (!rideData) {
+      return { dateLabel: '', timeLabel: '', arrTimeLabel: undefined, departureISO: '', arrivalISO: '' };
+    }
+
+    const d = new Date(rideData.ride.departure_time);
+    const a = (rideData as any).calculated_arrival ? new Date((rideData as any).calculated_arrival) : null;
+    
     return {
       dateLabel: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
       timeLabel: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      arrTimeLabel: a
-        ? a.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : undefined,
+      arrTimeLabel: a ? a.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+      departureISO: rideData.ride.departure_time,
+      arrivalISO: a ? a.toISOString() : '',
     };
-  }, [departureISO, arrivalISO]);
+  }, [rideData]);
 
-  // COORDS
+  // COORDS - computed from API data
   const start = useMemo(() => {
-    const p: any = params;
-    return toLatLng(p.start, p.start_lat, p.start_lng);
-  }, [params]);
+    if (!rideData) return null;
+    return toLatLng(null, rideData.ride.start_lat, rideData.ride.start_lng);
+  }, [rideData]);
+  
   const end = useMemo(() => {
-    const p: any = params;
-    return toLatLng(p.end, p.end_lat, p.end_lng);
-  }, [params]);
+    if (!rideData) return null;
+    return toLatLng(null, rideData.ride.end_lat, rideData.ride.end_lng);
+  }, [rideData]);
 
-  const startAddress: string =
-    (params as any).start?.address ??
-    (params as any).start_address ??
-    (params as any).start_location ??
-    '';
-  const endAddress: string =
-    (params as any).end?.address ??
-    (params as any).end_address ??
-    (params as any).end_location ??
-    '';
+  const startAddress: string = rideData?.ride.start_location ?? '';
+  const endAddress: string = rideData?.ride.end_location ?? '';
 
   const [geoStart, setGeoStart] = useState<LatLng | null>(null);
   const [geoEnd, setGeoEnd] = useState<LatLng | null>(null);
@@ -144,40 +197,43 @@ export default function RideDetails() {
     Number.isFinite(endFinal.latitude) &&
     Number.isFinite(endFinal.longitude);
 
-  // META
-  const role: 'search' | 'rider' | 'driver' =
-    (params as any).role ?? (params as any).mode ?? 'rider';
-  const status: string =
-    (params as any).status ?? (params as any).ride_status ?? 'available';
-  const availableSeats: number =
-    (params as any).availableSeats ?? (params as any).available_seats ?? 0;
-  const pricePerSeat: number | undefined =
-    (params as any).pricePerSeat ?? (params as any).price_per_seat;
+  // META - from API data and params
+  const role: 'search' | 'rider' | 'driver' = (params as any).source === 'search' ? 'search' : 'rider';
+  const status: string = rideData?.ride.status ?? 'available';
+  const availableSeats: number = rideData?.ride.available_seats ?? 0;
+  const pricePerSeat: number | string | undefined = rideData?.ride.price_per_seat;
 
-  const driverName: string =
-    (params as any).driverName ?? (params as any).driver_name ?? 'Driver';
-  const driverPhoto: string | undefined =
-    (params as any).driverPhoto ?? (params as any).driver_photo;
-  const driverRating: number | undefined =
-    (params as any).driverRating ?? (params as any).driver_rating;
+  const driverName: string = rideData?.driver.name ?? 'Driver';
+  const driverPhoto: string | undefined = rideData?.driver.photo;
+  const driverRating: number | undefined = rideData?.driver.rating;
 
+  console.log('📸 Photo Debug:', {
+    driverPhoto,
+    hasPhoto: !!driverPhoto,
+    photoType: typeof driverPhoto,
+    photoLength: driverPhoto?.length
+  });
 
   const startShort = extractShort(startAddress) || 'Start';
   const endShort = extractShort(endAddress) || 'End';
 
-  const rideId: string = (params as any).rideId ?? (params as any).ride_id;
-  const requestId: string | undefined =
-    (params as any).requestId ?? (params as any).request_id;
-  const myRequestStatus: string | null =
-    (params as any).myRequestStatus ?? null;
+  const requestId: string | undefined = rideData?.user_request?.id;
+  const myRequestStatus: string | null = rideData?.user_request?.status ?? null;
 
-  const baseFare =
-    (params as any).base_fare ??
-    (typeof pricePerSeat === 'number' ? Number(pricePerSeat) : 0);
-  const fee =
-    (params as any).fee ?? (baseFare ? Number((baseFare * 0.1).toFixed(2)) : 0);
-  const discount = (params as any).discount ?? 0;
+  const baseFare = pricePerSeat ? Number(pricePerSeat) : 0;
+  const fee = baseFare ? Number((baseFare * 0.1).toFixed(2)) : 0;
+  const discount = 0; // No discount system for now
   const total = Math.max(baseFare + fee - discount, 0);
+
+  console.log('💰 Price Debug:', {
+    pricePerSeat,
+    baseFare,
+    fee,
+    discount,
+    total,
+    rideDataExists: !!rideData,
+    priceFromAPI: rideData?.ride?.price_per_seat
+  });
 
   // PERMISSIONS
   const canRequest = role === 'search' && status === 'available' && availableSeats > 0 && !myRequestStatus;
@@ -295,6 +351,37 @@ export default function RideDetails() {
     })
   ).current;
 
+  // Loading state
+  if (loadingData) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 16, color: '#6B7280' }}>Loading ride details...</Text>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error || !rideData) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={{ fontSize: 16, color: '#DC2626', textAlign: 'center', marginBottom: 16 }}>
+          {error || 'Failed to load ride details'}
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{ 
+            backgroundColor: '#7C3AED', 
+            paddingHorizontal: 16, 
+            paddingVertical: 8, 
+            borderRadius: 8 
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
       {/* Map (kept interactive; sheet sits on top) */}
@@ -333,7 +420,16 @@ export default function RideDetails() {
           {/* Driver row */}
           <View style={styles.driverRow}>
             {driverPhoto ? (
-              <Image source={{ uri: driverPhoto }} style={styles.avatar} />
+              <Image 
+                source={{ uri: driverPhoto }} 
+                style={styles.avatar}
+                onError={(error) => {
+                  console.error('❌ Image failed to load:', error.nativeEvent);
+                }}
+                onLoad={() => {
+                  console.log('✅ Image loaded successfully:', driverPhoto);
+                }}
+              />
             ) : (
               <View style={[styles.avatar, styles.avatarFallback]}>
                 <Text style={styles.avatarInitial}>
@@ -408,23 +504,24 @@ export default function RideDetails() {
             Insert policy here. Insert policy here. Insert policy here. Insert policy here.
           </Text>
 
-          {/* CTAs */}
-          {role === 'search' && (
+          {/* CTAs - Always show consistent buttons regardless of navigation source */}
+          {/* Show request status if user has already requested */}
+          {myRequestStatus && (
+            <View style={[styles.statusContainer, getRequestStatusStyle(myRequestStatus)]}>
+              <Ionicons 
+                name={getRequestStatusIcon(myRequestStatus)} 
+                size={20} 
+                color={getRequestStatusColor(myRequestStatus)} 
+              />
+              <Text style={[styles.statusText, { color: getRequestStatusColor(myRequestStatus) }]}>
+                {getRequestStatusMessage(myRequestStatus)}
+              </Text>
+            </View>
+          )}
+          
+          {/* Show buttons unless request has been rejected/declined */}
+          {myRequestStatus !== 'rejected' && myRequestStatus !== 'declined' && (
             <>
-              {/* Show request status if user has already requested */}
-              {myRequestStatus && (
-                <View style={[styles.statusContainer, getRequestStatusStyle(myRequestStatus)]}>
-                  <Ionicons 
-                    name={getRequestStatusIcon(myRequestStatus)} 
-                    size={20} 
-                    color={getRequestStatusColor(myRequestStatus)} 
-                  />
-                  <Text style={[styles.statusText, { color: getRequestStatusColor(myRequestStatus) }]}>
-                    {getRequestStatusMessage(myRequestStatus)}
-                  </Text>
-                </View>
-              )}
-              
               {/* Request button - only show if no existing request */}
               {!myRequestStatus && (
                 <TouchableOpacity
@@ -435,60 +532,55 @@ export default function RideDetails() {
                   <Text style={styles.ctaText}>{loading ? 'Requesting…' : 'Request ride'}</Text>
                 </TouchableOpacity>
               )}
-            </>
-          )}
 
-          {role === 'rider' && (
-            <View style={styles.rowGap}>
-              <TouchableOpacity
-                style={[styles.secondary, (loading || !canCancel) && { opacity: 0.6 }]}
-                onPress={handleCancel}
-                disabled={loading || !canCancel}
-              >
-                <Text style={styles.secondaryText}>Cancel ride</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.primary}
-                onPress={() => {
-                  const conversation = {
-                    id: `${rideId}-${params.otherUserId || 'unknown'}`,
-                    otherUser: {
-                      id: params.otherUserId || '',
-                      name: role === 'rider' ? driverName : params.riderName || 'Rider',
-                      photo: role === 'rider' ? driverPhoto : params.riderPhoto,
-                    },
-                    ride: {
-                      id: rideId,
-                      departure_time: departureISO,
-                      start_location: startAddress,
-                      end_location: endAddress,
-                      start_lat: startFinal?.latitude,
-                      start_lng: startFinal?.longitude,
-                      end_lat: endFinal?.latitude,
-                      end_lng: endFinal?.longitude,
-                      price_per_seat: pricePerSeat,
-                      available_seats: availableSeats,
-                    },
-                    lastMessage: {
-                      content: 'No messages yet',
-                      created_at: new Date().toISOString(),
-                    },
-                    status: status === 'accepted' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled',
-                    userRole: role === 'driver' ? 'driver' : 'rider',
-                  };
-                  navigation.navigate('Chat', { conversation });
-                }}
-              >
-                <Text style={styles.primaryText}>Messages for ride</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.primary, (loading || !canContact) && { opacity: 0.6 }]}
-                onPress={handleContact}
-                disabled={loading || !canContact}
-              >
-                <Text style={styles.primaryText}>Contact</Text>
-              </TouchableOpacity>
-            </View>
+              {/* Message and Cancel buttons - shown for all existing requests except rejected */}
+              {myRequestStatus && (
+                <View style={styles.rowGap}>
+                  <TouchableOpacity
+                    style={[styles.secondary, loading && { opacity: 0.6 }]}
+                    onPress={handleCancel}
+                    disabled={loading}
+                  >
+                    <Text style={styles.secondaryText}>Cancel ride</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.primary}
+                    onPress={() => {
+                      const driverId = rideData?.driver?.id || rideData?.ride?.driver_id;
+                      const conversation = {
+                        id: `${rideId}-${driverId || 'unknown'}`,
+                        otherUser: {
+                          id: driverId || '',
+                          name: driverName,
+                          photo: driverPhoto,
+                        },
+                        ride: {
+                          id: rideId,
+                          departure_time: departureISO,
+                          start_location: startAddress,
+                          end_location: endAddress,
+                          start_lat: startFinal?.latitude,
+                          start_lng: startFinal?.longitude,
+                          end_lat: endFinal?.latitude,
+                          end_lng: endFinal?.longitude,
+                          price_per_seat: pricePerSeat,
+                          available_seats: availableSeats,
+                        },
+                        lastMessage: {
+                          content: 'No messages yet',
+                          created_at: new Date().toISOString(),
+                        },
+                        status: status === 'accepted' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled',
+                        userRole: 'rider',
+                      };
+                      navigation.navigate('Chat', { conversation });
+                    }}
+                  >
+                    <Text style={styles.primaryText}>Message Driver</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       </Animated.View>

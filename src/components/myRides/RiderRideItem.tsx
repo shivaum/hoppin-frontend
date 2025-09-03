@@ -20,32 +20,10 @@ export default function RiderRideItem({ request: b }: Props) {
   const navigation = useNavigation<Nav>();
 
   const goToDetails = () => {
-    const params: any = {
-      role: 'rider',
+    navigation.navigate('RideDetails', {
       rideId: b.ride_id,
-      start_location: b.start_location,
-      end_location: b.end_location,
-      departure_time: b.departure_time,
-      status: b.status,
-      request_id: b.request_id,
-    };
-
-    // Optional fields if your API includes them on RideRequestItem
-    if ('price_per_seat' in b) params.price_per_seat = (b as any).price_per_seat;
-    if ('available_seats' in b) params.available_seats = (b as any).available_seats;
-    if ('driver_name' in b) params.driver_name = (b as any).driver_name;
-
-    // Coords if available
-    if ('start_lat' in b && 'start_lng' in b) {
-      params.start_lat = (b as any).start_lat;
-      params.start_lng = (b as any).start_lng;
-    }
-    if ('end_lat' in b && 'end_lng' in b) {
-      params.end_lat = (b as any).end_lat;
-      params.end_lng = (b as any).end_lng;
-    }
-
-    navigation.navigate('RideDetails', params);
+      source: 'rider' // Coming from "My Rides" as a rider
+    });
   };
 
   return (

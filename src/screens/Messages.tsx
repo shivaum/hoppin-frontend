@@ -112,13 +112,10 @@ export default function Messages() {
   };
 
   const handleRideHeaderPress = (conversation: MessageConversation) => {
-    // TODO: Navigate to ride details - placeholder for now
-    Toast.show({
-      type: 'info',
-      text1: 'Ride Details',
-      text2: `Navigate to ride ${conversation.ride.id} details`,
+    navigation.navigate('RideDetails', { 
+      rideId: conversation.ride.id,
+      source: conversation.userRole === 'driver' ? 'driver' : 'rider' // Context based on user's role
     });
-    // navigation.navigate('RideDetails', { rideId: conversation.ride.id });
   };
 
   const renderEmptyState = () => (
