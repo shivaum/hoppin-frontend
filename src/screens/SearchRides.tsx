@@ -15,11 +15,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { searchRides } from '../integrations/hopin-backend/rider';
-import type { SearchRide as SearchRideType, Ride as RideType } from '../types';
+import { searchRides, advancedSearchRides } from '../integrations/hopin-backend/rider';
+import type { SearchRide as SearchRideType, Ride as RideType, AdvancedSearchParams, EnhancedSearchRide, AdvancedSearchResponse } from '../types';
 import RideCard from '../components/searchRides/RideCard';
-import LocationInput, { LatLng } from '../components/common/inputs/LocationInput';
-import { GooglePlacesAutocompleteRef } from 'react-native-google-places-autocomplete';
+import EnhancedRideCard from '../components/searchRides/EnhancedRideCard';
+import SmartLocationInput, { SmartLocationInputRef, LatLng } from '../components/common/inputs/SmartLocationInput';
+import AdvancedSearchFilters from '../components/searchRides/AdvancedSearchFilters';
 import SubmitButton from '../components/common/buttons/SubmitButton';
 import CalendarModal from '../components/common/modals/CalendarModal';
 import { formatDateShort } from '../utils/dateTime';
@@ -31,9 +32,9 @@ export default function SearchRides() {
   const RECENTS_KEY = `search_recents_v2_${user?.id || 'guest'}`;
   const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey as string;
 
-  // Refs for LocationInput components
-  const fromInputRef = useRef<GooglePlacesAutocompleteRef>(null);
-  const toInputRef = useRef<GooglePlacesAutocompleteRef>(null);
+  // Refs for SmartLocationInput components
+  const fromInputRef = useRef<SmartLocationInputRef>(null);
+  const toInputRef = useRef<SmartLocationInputRef>(null);
 
   const [fromText, setFromText] = useState('');
   const [toText, setToText] = useState('');
@@ -44,8 +45,13 @@ export default function SearchRides() {
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   const [rides, setRides] = useState<RideType[]>([]);
+  const [enhancedRides, setEnhancedRides] = useState<EnhancedSearchRide[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [useAdvancedSearch, setUseAdvancedSearch] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<Partial<AdvancedSearchParams>>({});
+  const [filtersVisible, setFiltersVisible] = useState(false);
+  const [searchResponse, setSearchResponse] = useState<AdvancedSearchResponse | null>(null);
 
   const [recents, setRecents] = useState<string[]>([]);
   const [focusedInput, setFocusedInput] = useState<'from' | 'to' | null>(null);
@@ -146,35 +152,57 @@ export default function SearchRides() {
     setHasSearched(true);
     setIsSearching(true);
     try {
-      // Only use date filter if user has explicitly selected a date
-      const searchDate = selectedDate || undefined;
-      const results = await searchRides(fromText, toText, searchDate);
-      const mappedRides = results.map(mapToRide);
-      // For sorting, use selected date or today's date
-      const sortDate = searchDate || new Date().toISOString().split('T')[0];
-      const sortedRides = sortRidesByDateRelevance(mappedRides, sortDate);
-      setRides(sortedRides);
-      setJustCompletedSearch(true); // Flag to prevent onChange from showing recents
-      setLastSearchTexts({from: fromText, to: toText}); // Store what we searched for
+      if (useAdvancedSearch) {
+        // Use advanced search with filters
+        const searchParams: AdvancedSearchParams = {
+          from: fromText,
+          to: toText,
+          from_lat: fromCoords.lat || undefined,
+          from_lng: fromCoords.lng || undefined,
+          to_lat: toCoords.lat || undefined,
+          to_lng: toCoords.lng || undefined,
+          date: selectedDate || undefined,
+          ...advancedFilters,
+        };
+        
+        const response = await advancedSearchRides(searchParams);
+        setSearchResponse(response);
+        setEnhancedRides(response.rides);
+        setRides([]); // Clear basic rides when using advanced search
+      } else {
+        // Use basic search (fallback)
+        const searchDate = selectedDate || undefined;
+        const results = await searchRides(fromText, toText, searchDate);
+        const mappedRides = results.map(mapToRide);
+        const sortDate = searchDate || new Date().toISOString().split('T')[0];
+        const sortedRides = sortRidesByDateRelevance(mappedRides, sortDate);
+        setRides(sortedRides);
+        setEnhancedRides([]); // Clear enhanced rides when using basic search
+        setSearchResponse(null);
+      }
+      
+      setJustCompletedSearch(true);
+      setLastSearchTexts({from: fromText, to: toText});
       await saveRecent(fromText);
       await saveRecent(toText);
-      setShowRecents(false); // Hide recents after successful search
-      // Reset flag after a short delay to allow for automatic onChange calls
+      setShowRecents(false);
       setTimeout(() => {
         setJustCompletedSearch(false);
-      }, 200); // Increased timeout
+      }, 200);
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Search failed');
     } finally {
       setIsSearching(false);
     }
-  }, [fromText, toText, selectedDate, mapToRide, sortRidesByDateRelevance, recents]);
+  }, [fromText, toText, fromCoords, toCoords, selectedDate, useAdvancedSearch, advancedFilters, mapToRide, sortRidesByDateRelevance, recents]);
 
 
   const dateBtnLabel = selectedDate ? formatDateShort(selectedDate + 'T00:00:00') : 'Select date';
 
   const hasInputs = fromText.trim().length > 0 || toText.trim().length > 0;
+  const totalResults = enhancedRides.length || rides.length;
+  const hasActiveFilters = Object.keys(advancedFilters).length > 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -182,8 +210,38 @@ export default function SearchRides() {
         style={styles.container}
         behavior={Platform.select({ ios: 'padding', android: undefined })}
       >
-      {/* Top right date pill */}
+      {/* Top controls */}
       <View style={styles.topRow}>
+        <View style={styles.leftControls}>
+          <TouchableOpacity 
+            style={[styles.advancedToggle, useAdvancedSearch && styles.advancedToggleActive]} 
+            onPress={() => setUseAdvancedSearch(!useAdvancedSearch)}
+          >
+            <Ionicons 
+              name={useAdvancedSearch ? "settings" : "settings-outline"} 
+              size={16} 
+              color={useAdvancedSearch ? "#7C3AED" : "#6B7280"} 
+            />
+            <Text style={[styles.advancedToggleText, useAdvancedSearch && styles.advancedToggleTextActive]}>
+              {useAdvancedSearch ? "Smart" : "Basic"}
+            </Text>
+          </TouchableOpacity>
+          {useAdvancedSearch && (
+            <TouchableOpacity 
+              style={[styles.filtersButton, hasActiveFilters && styles.filtersButtonActive]} 
+              onPress={() => setFiltersVisible(true)}
+            >
+              <Ionicons 
+                name="funnel-outline" 
+                size={16} 
+                color={hasActiveFilters ? "#7C3AED" : "#6B7280"} 
+              />
+              <Text style={[styles.filtersButtonText, hasActiveFilters && styles.filtersButtonTextActive]}>
+                Filters{hasActiveFilters ? ` (${Object.keys(advancedFilters).length})` : ''}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <TouchableOpacity style={styles.datePill} onPress={() => setCalendarOpen(true)}>
           <Text style={styles.datePillText}>{dateBtnLabel}</Text>
         </TouchableOpacity>
@@ -193,55 +251,55 @@ export default function SearchRides() {
       <View style={styles.inputs}>
         <View style={styles.inputShell}>
           <Text style={styles.inputLabel}>Pick-up</Text>
-          <LocationInput
+          <SmartLocationInput
             ref={fromInputRef}
-            apiKey={apiKey}
             value={fromText}
             placeholder="Enter pick-up location"
             onChange={(text) => {
               setFromText(text);
-              // Only show recents if user is genuinely changing the text from what was searched
               if (!justCompletedSearch && text !== lastSearchTexts.from) {
-                setShowRecents(true); // Show recents when typing
+                setShowRecents(true);
               }
             }}
             onSelect={(loc, coords) => {
               setFromText(loc);
-              setFromCoords(coords);
+              if (coords) setFromCoords(coords);
             }}
             onClear={() => {
               setFromCoords({ lat: 0, lng: 0 });
-              setShowRecents(true); // Show recents when clearing
+              setShowRecents(true);
             }}
             onFocus={() => setFocusedInput('from')}
             onBlur={() => setFocusedInput(null)}
+            showPersonalizedSuggestions={useAdvancedSearch}
+            maxSuggestions={useAdvancedSearch ? 8 : 5}
           />
         </View>
 
         <View style={styles.inputShell}>
           <Text style={styles.inputLabel}>Drop-off</Text>
-          <LocationInput
+          <SmartLocationInput
             ref={toInputRef}
-            apiKey={apiKey}
             value={toText}
             placeholder="Enter drop-off location"
             onChange={(text) => {
               setToText(text);
-              // Only show recents if user is genuinely changing the text from what was searched
               if (!justCompletedSearch && text !== lastSearchTexts.to) {
-                setShowRecents(true); // Show recents when typing
+                setShowRecents(true);
               }
             }}
             onSelect={(loc, coords) => {
               setToText(loc);
-              setToCoords(coords);
+              if (coords) setToCoords(coords);
             }}
             onClear={() => {
               setToCoords({ lat: 0, lng: 0 });
-              setShowRecents(true); // Show recents when clearing
+              setShowRecents(true);
             }}
             onFocus={() => setFocusedInput('to')}
             onBlur={() => setFocusedInput(null)}
+            showPersonalizedSuggestions={useAdvancedSearch}
+            maxSuggestions={useAdvancedSearch ? 8 : 5}
           />
         </View>
       </View>
@@ -258,34 +316,29 @@ export default function SearchRides() {
                 // Populate focused input, or fallback to first available empty input, or default to 'from'
                 if (focusedInput === 'from') {
                   setFromText(r);
-                  // Also update the GooglePlacesAutocomplete component
                   if (fromInputRef.current) {
-                    fromInputRef.current.setAddressText(r);
+                    fromInputRef.current.setLocationText(r);
                   }
                 } else if (focusedInput === 'to') {
                   setToText(r);
-                  // Also update the GooglePlacesAutocomplete component
                   if (toInputRef.current) {
-                    toInputRef.current.setAddressText(r);
+                    toInputRef.current.setLocationText(r);
                   }
                 } else if (!fromText) {
                   setFromText(r);
-                  // Also update the GooglePlacesAutocomplete component
                   if (fromInputRef.current) {
-                    fromInputRef.current.setAddressText(r);
+                    fromInputRef.current.setLocationText(r);
                   }
                 } else if (!toText) {
                   setToText(r);
-                  // Also update the GooglePlacesAutocomplete component
                   if (toInputRef.current) {
-                    toInputRef.current.setAddressText(r);
+                    toInputRef.current.setLocationText(r);
                   }
                 } else {
                   // Both inputs have text, default to replacing 'from'
                   setFromText(r);
-                  // Also update the GooglePlacesAutocomplete component
                   if (fromInputRef.current) {
-                    fromInputRef.current.setAddressText(r);
+                    fromInputRef.current.setLocationText(r);
                   }
                 }
               }}
@@ -311,33 +364,75 @@ export default function SearchRides() {
 
       {isSearching && <ActivityIndicator style={{ marginTop: 18 }} size="large" />}
 
-      {/* Summary pills + results */}
-      {!isSearching && rides.length > 0 && (
+      {/* Search info and results */}
+      {!isSearching && totalResults > 0 && (
         <>
-          <Text style={styles.resultsHeader}>
-            Found {rides.length} ride{rides.length > 1 ? 's' : ''}
-          </Text>
-
-          <FlatList
-            data={rides}
-            keyExtractor={r => r.id}
-            renderItem={({ item }) => (
-              <RideCard
-                ride={item}
-                myProfileId={user?.id}
-                myRequestStatus={(item as any).myRequestStatus}
-                onRequestRide={() => handleSearch()}
-              />
+          <View style={styles.resultsInfo}>
+            <Text style={styles.resultsHeader}>
+              Found {totalResults} ride{totalResults > 1 ? 's' : ''}
+            </Text>
+            {useAdvancedSearch && searchResponse?.search_info && (
+              <View style={styles.searchMeta}>
+                <Text style={styles.searchMetaText}>
+                  Sorted by {searchResponse.search_info.search_params.sort_by}
+                  {searchResponse.search_info.search_params.max_distance && 
+                    ` • Within ${searchResponse.search_info.search_params.max_distance}km`
+                  }
+                </Text>
+              </View>
             )}
-            contentContainerStyle={{ paddingBottom: 16 }}
-          />
+          </View>
+
+          {enhancedRides.length > 0 ? (
+            <FlatList
+              data={enhancedRides}
+              keyExtractor={r => r.ride_id}
+              renderItem={({ item }) => (
+                <EnhancedRideCard
+                  ride={item}
+                  myProfileId={user?.id}
+                  myRequestStatus={item.my_request_status}
+                  onRequestRide={() => handleSearch()}
+                  showEnhancedData={useAdvancedSearch}
+                />
+              )}
+              contentContainerStyle={{ paddingBottom: 16 }}
+            />
+          ) : (
+            <FlatList
+              data={rides}
+              keyExtractor={r => r.id}
+              renderItem={({ item }) => (
+                <RideCard
+                  ride={item}
+                  myProfileId={user?.id}
+                  myRequestStatus={(item as any).myRequestStatus}
+                  onRequestRide={() => handleSearch()}
+                />
+              )}
+              contentContainerStyle={{ paddingBottom: 16 }}
+            />
+          )}
         </>
       )}
 
       {/* Empty state */}
-      {!isSearching && hasSearched && rides.length === 0 && (
+      {!isSearching && hasSearched && totalResults === 0 && (
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>No rides found. Try different locations or times.</Text>
+          <Text style={styles.emptyText}>
+            {useAdvancedSearch 
+              ? "No rides match your criteria. Try adjusting your filters or search area."
+              : "No rides found. Try different locations or times."
+            }
+          </Text>
+          {useAdvancedSearch && hasActiveFilters && (
+            <TouchableOpacity 
+              style={styles.clearFiltersButton} 
+              onPress={() => setAdvancedFilters({})}
+            >
+              <Text style={styles.clearFiltersText}>Clear Filters</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -351,6 +446,23 @@ export default function SearchRides() {
           setCalendarOpen(false);
         }}
       />
+
+      {/* Advanced Filters Modal */}
+      {useAdvancedSearch && (
+        <AdvancedSearchFilters
+          visible={filtersVisible}
+          onClose={() => setFiltersVisible(false)}
+          onApply={(filters) => {
+            setAdvancedFilters(filters);
+            setFiltersVisible(false);
+            // Auto-search if we have locations
+            if (fromText.trim() && toText.trim()) {
+              setTimeout(() => handleSearch(), 100);
+            }
+          }}
+          initialFilters={advancedFilters}
+        />
+      )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -362,8 +474,68 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
 
-  topRow: { alignItems: 'flex-end' },
-  datePill: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#F3E8FF' },
+  topRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center' 
+  },
+  leftControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  advancedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 4,
+  },
+  advancedToggleActive: {
+    backgroundColor: '#F3E8FF',
+    borderColor: '#C084FC',
+  },
+  advancedToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  advancedToggleTextActive: {
+    color: '#7C3AED',
+  },
+  filtersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 4,
+  },
+  filtersButtonActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
+  filtersButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  filtersButtonTextActive: {
+    color: '#92400E',
+  },
+  datePill: { 
+    paddingVertical: 8, 
+    paddingHorizontal: 12, 
+    borderRadius: 14, 
+    backgroundColor: '#F3E8FF' 
+  },
   datePillText: { color: purple, fontWeight: '700' },
 
   inputs: { marginTop: 12 },
@@ -404,8 +576,46 @@ const styles = StyleSheet.create({
   },
   summaryText: { flex: 1, color: '#111827', fontWeight: '600' },
 
-  resultsHeader: { fontSize: 18, fontWeight: '700', marginVertical: 12 },
+  resultsInfo: {
+    marginVertical: 12,
+  },
+  resultsHeader: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    marginBottom: 4 
+  },
+  searchMeta: {
+    marginTop: 2,
+  },
+  searchMetaText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontStyle: 'italic',
+  },
+  clearFiltersButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  clearFiltersText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: '#6B7280', fontSize: 16 },
+  empty: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyText: { 
+    color: '#6B7280', 
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
 });

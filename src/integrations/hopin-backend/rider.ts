@@ -3,6 +3,8 @@ import {
   SearchRide,
   RequestRidePayload,
   RideRequestItem,
+  AdvancedSearchParams,
+  AdvancedSearchResponse,
 } from "../../types";
 import { API_URL } from '@env'
 
@@ -67,4 +69,24 @@ export async function getMyRideRequests(): Promise<RideRequestItem[]> {
   }
   const data = await res.json();
   return (data.requests ?? []) as RideRequestItem[];
+}
+
+/**
+ * Advanced search with geospatial, relevance scoring, and analytics
+ */
+export async function advancedSearchRides(
+  params: AdvancedSearchParams
+): Promise<AdvancedSearchResponse> {
+  const res = await authorizedFetch(`${API_URL}/rider/search_rides/advanced`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  
+  if (!res.ok) {
+    const err = await safeJson(res);
+    throw new Error(err.error || "Failed to perform advanced search");
+  }
+  
+  return res.json();
 }
