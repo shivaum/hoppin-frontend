@@ -68,7 +68,7 @@ export default forwardRef<any, Props>(function LocationInput(
             loc ? { lat: loc.lat, lng: loc.lng } : { lat: 0, lng: 0 }
           );
         }}
-        onFail={(e) => console.log('Places error:', e)}
+        onFail={(e) => console.error('Places error:', e)}
         onNotFound={() => {}}
         styles={{
           // remove inner container look entirely

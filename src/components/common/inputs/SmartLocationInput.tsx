@@ -61,7 +61,7 @@ const SmartLocationInput = forwardRef<SmartLocationInputRef, Props>(
     const [error, setError] = useState<string | null>(null);
 
     const inputRef = useRef<TextInput>(null);
-    const debounceRef = useRef<NodeJS.Timeout>();
+    const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
     useImperativeHandle(ref, () => ({
       focus: () => inputRef.current?.focus(),
@@ -146,79 +146,52 @@ const SmartLocationInput = forwardRef<SmartLocationInputRef, Props>(
 
     // Debounced search for suggestions
     useEffect(() => {
-      console.log('🔍 Location Input Effect triggered:', {
-        value: value.trim(),
-        length: value.trim().length,
-        isFocused,
-        showPersonalizedSuggestions,
-        maxSuggestions
-      });
 
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
 
       if (value.trim().length >= 2 && isFocused) {
-        console.log('✅ Starting location search for:', value.trim());
         debounceRef.current = setTimeout(async () => {
           try {
             setIsLoading(true);
             setError(null);
-            console.log('🔄 Setting loading state, cleared error');
             
             // Try smart suggestions first
             if (showPersonalizedSuggestions) {
-              console.log('🧠 Attempting smart suggestions...');
               try {
                 const response = await getLocationSuggestions(value.trim(), maxSuggestions);
-                console.log('✅ Smart suggestions response:', response);
                 
                 // Check if we got any suggestions
                 if (response.suggestions && response.suggestions.length > 0) {
                   setSuggestions(response.suggestions);
                   setShowSuggestions(true);
-                  console.log('✅ Set smart suggestions:', response.suggestions.length, 'items');
                 } else {
-                  console.log('⚠️ Smart suggestions returned empty results, falling back to basic...');
                   const basicSuggestions = createBasicSuggestions(value.trim());
-                  console.log('✅ Created basic suggestions:', basicSuggestions.length, 'items', basicSuggestions);
                   setSuggestions(basicSuggestions);
                   setShowSuggestions(true);
-                  console.log('✅ Set basic fallback suggestions (empty smart results)');
                 }
               } catch (smartErr) {
-                console.log('⚠️ Smart suggestions failed with error:', smartErr);
-                console.log('🔄 Falling back to basic suggestions...');
                 // Fallback to basic suggestions (mock data for now)
                 const basicSuggestions = createBasicSuggestions(value.trim());
-                console.log('✅ Created basic suggestions:', basicSuggestions.length, 'items', basicSuggestions);
                 setSuggestions(basicSuggestions);
                 setShowSuggestions(true);
-                console.log('✅ Set basic fallback suggestions (API error)');
               }
             } else {
-              console.log('🔧 Using basic suggestions mode');
               // Use basic suggestions
               const basicSuggestions = createBasicSuggestions(value.trim());
-              console.log('✅ Created basic suggestions:', basicSuggestions.length, 'items', basicSuggestions);
               setSuggestions(basicSuggestions);
               setShowSuggestions(true);
-              console.log('✅ Set basic suggestions');
             }
           } catch (err: any) {
-            console.error('❌ Location suggestions error:', err);
+            console.error('Location suggestions error:', err);
             setError('Unable to load location suggestions');
             setSuggestions([]);
           } finally {
             setIsLoading(false);
-            console.log('🏁 Finished loading, set loading to false');
           }
         }, 300);
       } else {
-        console.log('❌ Not searching - criteria not met:', {
-          lengthCheck: value.trim().length >= 2,
-          focusCheck: isFocused
-        });
         setSuggestions([]);
         setShowSuggestions(false);
         setIsLoading(false);
@@ -302,15 +275,6 @@ const SmartLocationInput = forwardRef<SmartLocationInputRef, Props>(
       </TouchableOpacity>
     );
 
-    // Debug render state
-    console.log('🎨 Rendering SmartLocationInput:', {
-      showSuggestions,
-      suggestionsLength: suggestions.length,
-      isLoading,
-      error,
-      value,
-      isFocused
-    });
 
     return (
       <View style={[s.container, style]}>

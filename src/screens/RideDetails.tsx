@@ -85,7 +85,6 @@ export default function RideDetails() {
         setLoadingData(true);
         setError(null);
         const data = await getRideDetails(rideId);
-        console.log('🚗 Ride Details API Response:', JSON.stringify(data, null, 2));
         setRideData(data);
       } catch (err: any) {
         console.error('Failed to fetch ride details:', err);
@@ -112,7 +111,7 @@ export default function RideDetails() {
         
         if (result) {
           // Store the calculated arrival time for use in the component
-          setRideData(prev => ({
+          setRideData((prev: any) => ({
             ...prev!,
             calculated_arrival: result.estimatedArrival
           }));
@@ -146,12 +145,12 @@ export default function RideDetails() {
   // COORDS - computed from API data
   const start = useMemo(() => {
     if (!rideData) return null;
-    return toLatLng(null, rideData.ride.start_lat, rideData.ride.start_lng);
+    return toLatLng(undefined, rideData.ride.start_lat, rideData.ride.start_lng);
   }, [rideData]);
   
   const end = useMemo(() => {
     if (!rideData) return null;
-    return toLatLng(null, rideData.ride.end_lat, rideData.ride.end_lng);
+    return toLatLng(undefined, rideData.ride.end_lat, rideData.ride.end_lng);
   }, [rideData]);
 
   const startAddress: string = rideData?.ride.start_location ?? '';
@@ -207,12 +206,6 @@ export default function RideDetails() {
   const driverPhoto: string | undefined = rideData?.driver.photo;
   const driverRating: number | undefined = rideData?.driver.rating;
 
-  console.log('📸 Photo Debug:', {
-    driverPhoto,
-    hasPhoto: !!driverPhoto,
-    photoType: typeof driverPhoto,
-    photoLength: driverPhoto?.length
-  });
 
   const startShort = extractShort(startAddress) || 'Start';
   const endShort = extractShort(endAddress) || 'End';
@@ -225,15 +218,6 @@ export default function RideDetails() {
   const discount = 0; // No discount system for now
   const total = Math.max(baseFare + fee - discount, 0);
 
-  console.log('💰 Price Debug:', {
-    pricePerSeat,
-    baseFare,
-    fee,
-    discount,
-    total,
-    rideDataExists: !!rideData,
-    priceFromAPI: rideData?.ride?.price_per_seat
-  });
 
   // PERMISSIONS
   const canRequest = role === 'search' && status === 'available' && availableSeats > 0 && !myRequestStatus;
@@ -423,12 +407,6 @@ export default function RideDetails() {
               <Image 
                 source={{ uri: driverPhoto }} 
                 style={styles.avatar}
-                onError={(error) => {
-                  console.error('❌ Image failed to load:', error.nativeEvent);
-                }}
-                onLoad={() => {
-                  console.log('✅ Image loaded successfully:', driverPhoto);
-                }}
               />
             ) : (
               <View style={[styles.avatar, styles.avatarFallback]}>
@@ -570,8 +548,8 @@ export default function RideDetails() {
                           content: 'No messages yet',
                           created_at: new Date().toISOString(),
                         },
-                        status: status === 'accepted' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled',
-                        userRole: 'rider',
+                        status: (status === 'accepted' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled') as 'confirmed' | 'pending' | 'cancelled',
+                        userRole: 'rider' as 'rider' | 'driver',
                       };
                       navigation.navigate('Chat', { conversation });
                     }}

@@ -77,15 +77,6 @@ export default function SearchRides() {
   }, [user?.id]);
 
   // Refresh search results when returning to this screen (after making requests)
-  useFocusEffect(
-    useCallback(() => {
-      // Only refresh if we have existing search results and valid search criteria
-      if (hasSearched && fromText.trim() && toText.trim() && (rides.length > 0 || enhancedRides.length > 0)) {
-        console.log('🔄 Screen focused - refreshing search results');
-        handleSearch();
-      }
-    }, [hasSearched, fromText, toText, rides.length, enhancedRides.length, handleSearch])
-  );
 
 
   const mapToRide = useCallback((r: SearchRideType): RideType & { myRequestStatus: string | null } => ({
@@ -209,6 +200,15 @@ export default function SearchRides() {
     }
   }, [fromText, toText, fromCoords, toCoords, selectedDate, useAdvancedSearch, advancedFilters, mapToRide, sortRidesByDateRelevance, recents]);
 
+  // Refresh search results when returning to this screen (after making requests)
+  useFocusEffect(
+    useCallback(() => {
+      // Only refresh if we have existing search results and valid search criteria
+      if (hasSearched && fromText.trim() && toText.trim() && (rides.length > 0 || enhancedRides.length > 0)) {
+        handleSearch();
+      }
+    }, [hasSearched, fromText, toText, rides.length, enhancedRides.length, handleSearch])
+  );
 
   const dateBtnLabel = selectedDate ? formatDateShort(selectedDate + 'T00:00:00') : 'Select date';
 
