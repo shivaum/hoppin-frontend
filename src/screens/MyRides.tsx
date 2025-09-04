@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -39,28 +38,21 @@ export default function MyRides() {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
-      {/* Header row */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.title}>My rides</Text>
-          <Text style={styles.subtitleSpaced}>Your scheduled rides</Text>
+    <View style={styles.root}>
+      {/* Offer Ride Button */}
+      {isDriver && (
+        <View style={styles.offerRideContainer}>
+          <TouchableOpacity
+            style={styles.offerBtn}
+            onPress={goToOfferRide}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Offer a ride"
+          >
+            <Text style={styles.offerBtnText}>Offer ride</Text>
+          </TouchableOpacity>
         </View>
-
-        {isDriver && (
-          <View style={styles.offerRideContainer}>
-            <TouchableOpacity
-              style={styles.offerBtn}
-              onPress={goToOfferRide}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Offer a ride"
-            >
-              <Text style={styles.offerBtnText}>Offer ride</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+      )}
 
       {/* Segmented control */}
       <View style={styles.segmentWrap}>
@@ -111,7 +103,7 @@ export default function MyRides() {
           <RiderRidesTab />
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -121,35 +113,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  headerTextContainer: {
-    paddingVertical: 8,
-    paddingLeft: 12,
-  },
   offerRideContainer: {
-    paddingVertical: 8,
-    paddingRight: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  subtitle: {
-    marginTop: 2,
-    color: '#6B7280',
-    fontSize: 14,
-  },
-  subtitleSpaced: {
-    marginTop: 6,
-    color: '#6B7280',
-    fontSize: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
   },
   offerBtn: {
     backgroundColor: '#111827',
