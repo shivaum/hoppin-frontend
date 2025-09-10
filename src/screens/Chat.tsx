@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -50,15 +50,17 @@ export default function Chat() {
     loadMessagesFromAPI();
   }, []);
 
+  const handleReceiveMessage = useCallback((message: Message) => {
+    setMessages(prev => [...prev, message]);
+  }, []);
+
   // Set up real-time message listening
   useConversationSocket({
     socket,
     rideId: conversation.ride.id,
     userId: user?.id || '',
     otherUserId: conversation.otherUser.id,
-    onReceive: (message: Message) => {
-      setMessages(prev => [...prev, message]);
-    },
+    onReceive: handleReceiveMessage,
   });
 
   const loadMessagesFromAPI = async () => {
