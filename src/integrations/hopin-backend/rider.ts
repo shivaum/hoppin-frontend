@@ -1,6 +1,5 @@
 import { authorizedFetch } from "./utils/authFetch";
 import {
-  SearchRide,
   RequestRidePayload,
   RideRequestItem,
   AdvancedSearchParams,
@@ -16,27 +15,6 @@ async function safeJson(res: Response): Promise<any> {
   }
 }
 
-/**
- * Search for available rides matching from/to and date
- */
-export async function searchRides(
-  from: string,
-  to: string,
-  date?: string
-): Promise<SearchRide[]> {
-  let url = `${API_URL}/rider/search_rides?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-  if (date) {
-    url += `&date=${encodeURIComponent(date)}`;
-  }
-  
-  const res = await authorizedFetch(url);
-  if (!res.ok) {
-    const err = await safeJson(res);
-    throw new Error(err.error || "Failed to search rides");
-  }
-  const data = await res.json();
-  return (data.rides ?? []) as SearchRide[];
-}
 
 /**
  * Request to join an existing ride

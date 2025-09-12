@@ -218,12 +218,9 @@ export interface AdvancedSearchParams {
   to_lat?: number;
   to_lng?: number;
   date?: string;
-  max_distance?: number; // km
-  max_price?: number;
+  max_distance?: number; // miles
   min_seats?: number;
-  sort_by?: 'relevance' | 'distance' | 'price' | 'departure_time' | 'popularity';
-  limit?: number;
-  use_full_text?: boolean;
+  sort_by?: 'relevance' | 'distance' | 'price' | 'departure_time';
   resolve_aliases?: boolean;
 }
 
@@ -232,6 +229,7 @@ export interface EnhancedSearchRide extends SearchRide {
   popularity_score: number;
   relevance_score?: number;
   distance_km?: number;
+  distance_miles?: number;
   coordinates: {
     start_lat: number | null;
     start_lng: number | null;

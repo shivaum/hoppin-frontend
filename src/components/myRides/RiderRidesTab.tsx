@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { FlatList, View, Text, RefreshControl } from 'react-native';
-import type { RideRequestItem, Ride } from '../../types';
-import RideCard from '../searchRides/RideCard';
+import type { RideRequestItem, EnhancedSearchRide } from '../../types';
+import EnhancedRideCard from '../searchRides/EnhancedRideCard';
 import { getMyRideRequests } from '../../integrations/hopin-backend/rider';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -21,22 +21,28 @@ export default function RiderRidesTab({
   const [refreshing, setRefreshing] = useState(false);
 
   // Convert RideRequestItem to Ride format for RideCard
-  const convertToRide = useCallback((request: RideRequestItem): Ride & { myRequestStatus: string | null } => ({
-      id: request.ride_id,
-      driverId: '', // Not available in RideRequestItem
-      startLocation: request.start_location,
-      endLocation: request.end_location,
-      departureTime: request.departure_time,
-      availableSeats: request.available_seats,
-      pricePerSeat: request.price_per_seat,
+  const convertToEnhancedSearchRide = useCallback((request: RideRequestItem): EnhancedSearchRide => ({
+      ride_id: request.ride_id,
+      driver_id: '', // Not available in RideRequestItem
+      start_location: request.start_location,
+      end_location: request.end_location,
+      departure_time: request.departure_time,
+      available_seats: request.available_seats,
+      price_per_seat: request.price_per_seat,
       status: request.status,
-      requests: [],
-      myRequestStatus: request.status,
+      my_request_status: request.status,
       driver: {
         name: request.driver_name,
         photo: request.driver_photo,
         rating: request.driver_rating,
-        totalRides: request.driver_total_rides,
+        total_rides: request.driver_total_rides,
+      },
+      popularity_score: 0,
+      coordinates: {
+        start_lat: null,
+        start_lng: null,
+        end_lat: null,
+        end_lng: null,
       }
   }), []);
 
@@ -83,12 +89,13 @@ export default function RiderRidesTab({
       data={local ?? []}
       keyExtractor={(r) => r.request_id}
       renderItem={({ item }) => (
-        <RideCard
-          ride={convertToRide(item)}
+        <EnhancedRideCard
+          ride={convertToEnhancedSearchRide(item)}
           myProfileId={user?.id}
           myRequestStatus={item.status}
           onRequestRide={() => {}} // No-op since these are already requested rides
           role="rider"
+          showEnhancedData={false} // Don't show enhanced badges for ride requests
         />
       )}
       contentContainerStyle={{ paddingTop: 8, paddingBottom: 12 }}

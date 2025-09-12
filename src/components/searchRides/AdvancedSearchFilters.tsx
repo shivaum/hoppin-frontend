@@ -27,22 +27,18 @@ export default function AdvancedSearchFilters({
   initialFilters = {},
 }: Props) {
   const [filters, setFilters] = useState<Partial<AdvancedSearchParams>>({
-    max_distance: 50,
-    max_price: undefined,
+    max_distance: 25,
     min_seats: 1,
     sort_by: 'relevance',
-    use_full_text: true,
     resolve_aliases: true,
-    limit: 50,
     ...initialFilters,
   });
 
   const sortOptions = [
     { value: 'relevance', label: 'Best Match', icon: 'star' },
-    { value: 'distance', label: 'Closest First', icon: 'location' },
     { value: 'price', label: 'Lowest Price', icon: 'cash' },
+    { value: 'distance', label: 'Closest First', icon: 'location' },
     { value: 'departure_time', label: 'Departure Time', icon: 'time' },
-    { value: 'popularity', label: 'Most Popular', icon: 'trending-up' },
   ];
 
   const handleApply = () => {
@@ -52,13 +48,10 @@ export default function AdvancedSearchFilters({
 
   const handleReset = () => {
     setFilters({
-      max_distance: 50,
-      max_price: undefined,
+      max_distance: 25,
       min_seats: 1,
       sort_by: 'relevance',
-      use_full_text: true,
       resolve_aliases: true,
-      limit: 50,
     });
   };
 
@@ -95,7 +88,7 @@ export default function AdvancedSearchFilters({
           <View style={s.section}>
             <Text style={s.sectionTitle}>Search Distance</Text>
             <Text style={s.sectionSubtitle}>
-              Find rides within {filters.max_distance}km
+              Find rides within {filters.max_distance} miles
             </Text>
             
             <View style={s.sliderContainer}>
@@ -105,7 +98,7 @@ export default function AdvancedSearchFilters({
                     style={[
                       s.sliderProgress, 
                       { 
-                        width: `${((filters.max_distance || 50) - 5) / (200 - 5) * 100}%` 
+                        width: `${((filters.max_distance || 25) - 0) / (25 - 0) * 100}%` 
                       }
                     ]} 
                   />
@@ -113,48 +106,29 @@ export default function AdvancedSearchFilters({
                 <View style={s.sliderButtons}>
                   <TouchableOpacity
                     style={s.sliderButton}
-                    onPress={() => updateFilter('max_distance', Math.max(5, (filters.max_distance || 50) - 10))}
+                    onPress={() => updateFilter('max_distance', Math.max(0, (filters.max_distance || 25) - 5))}
                   >
                     <Ionicons name="remove" size={16} color="#7C3AED" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={s.sliderButton}
-                    onPress={() => updateFilter('max_distance', Math.min(200, (filters.max_distance || 50) + 10))}
+                    onPress={() => updateFilter('max_distance', Math.min(25, (filters.max_distance || 25) + 5))}
                   >
                     <Ionicons name="add" size={16} color="#7C3AED" />
                   </TouchableOpacity>
                 </View>
               </View>
               <View style={s.sliderLabels}>
-                <Text style={s.sliderLabel}>5km</Text>
-                <Text style={s.sliderValue}>{filters.max_distance}km</Text>
-                <Text style={s.sliderLabel}>200km</Text>
+                <Text style={s.sliderLabel}>0 mi</Text>
+                <Text style={s.sliderValue}>{filters.max_distance} mi</Text>
+                <Text style={s.sliderLabel}>25 mi</Text>
               </View>
-            </View>
-          </View>
-
-          {/* Price Filter */}
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Maximum Price per Seat</Text>
-            <View style={s.priceInputContainer}>
-              <Text style={s.priceSymbol}>$</Text>
-              <TextInput
-                style={s.priceInput}
-                value={filters.max_price?.toString() || ''}
-                onChangeText={(text) => {
-                  const price = text ? parseInt(text, 10) : undefined;
-                  updateFilter('max_price', price);
-                }}
-                placeholder="No limit"
-                keyboardType="numeric"
-                placeholderTextColor="#9CA3AF"
-              />
             </View>
           </View>
 
           {/* Minimum Seats Filter */}
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Minimum Available Seats</Text>
+            <Text style={s.sectionTitle}>Minimum number of seats</Text>
             <View style={s.seatsContainer}>
               {[1, 2, 3, 4, 5].map((seats) => (
                 <TouchableOpacity
@@ -217,21 +191,6 @@ export default function AdvancedSearchFilters({
             
             <View style={s.toggleRow}>
               <View style={s.toggleInfo}>
-                <Text style={s.toggleTitle}>Full-Text Search</Text>
-                <Text style={s.toggleSubtitle}>
-                  Advanced location matching and synonyms
-                </Text>
-              </View>
-              <Switch
-                value={filters.use_full_text}
-                onValueChange={(value) => updateFilter('use_full_text', value)}
-                trackColor={{ false: '#E5E7EB', true: '#C084FC' }}
-                thumbColor={filters.use_full_text ? '#7C3AED' : '#9CA3AF'}
-              />
-            </View>
-
-            <View style={s.toggleRow}>
-              <View style={s.toggleInfo}>
                 <Text style={s.toggleTitle}>Location Intelligence</Text>
                 <Text style={s.toggleSubtitle}>
                   Resolve aliases and get smart suggestions
@@ -243,36 +202,6 @@ export default function AdvancedSearchFilters({
                 trackColor={{ false: '#E5E7EB', true: '#C084FC' }}
                 thumbColor={filters.resolve_aliases ? '#7C3AED' : '#9CA3AF'}
               />
-            </View>
-          </View>
-
-          {/* Results Limit */}
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Maximum Results</Text>
-            <Text style={s.sectionSubtitle}>
-              Show up to {filters.limit} rides
-            </Text>
-            
-            <View style={s.limitContainer}>
-              {[25, 50, 75, 100].map((limit) => (
-                <TouchableOpacity
-                  key={limit}
-                  style={[
-                    s.limitButton,
-                    filters.limit === limit && s.limitButtonActive,
-                  ]}
-                  onPress={() => updateFilter('limit', limit)}
-                >
-                  <Text
-                    style={[
-                      s.limitButtonText,
-                      filters.limit === limit && s.limitButtonTextActive,
-                    ]}
-                  >
-                    {limit}
-                  </Text>
-                </TouchableOpacity>
-              ))}
             </View>
           </View>
         </ScrollView>
@@ -407,29 +336,6 @@ const s = StyleSheet.create({
     color: '#7C3AED',
   },
 
-  // Price Input
-  priceInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-  },
-
-  priceSymbol: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginRight: 4,
-  },
-
-  priceInput: {
-    flex: 1,
-    height: 48,
-    fontSize: 16,
-    color: '#111827',
-  },
 
   // Seats Selection
   seatsContainer: {
@@ -521,35 +427,6 @@ const s = StyleSheet.create({
     color: '#6B7280',
   },
 
-  // Limit Selection
-  limitContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-
-  limitButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#fff',
-  },
-
-  limitButtonActive: {
-    borderColor: '#7C3AED',
-    backgroundColor: '#F3E8FF',
-  },
-
-  limitButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-
-  limitButtonTextActive: {
-    color: '#7C3AED',
-  },
 
   // Footer
   footer: {

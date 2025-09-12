@@ -35,40 +35,102 @@ export default function EnhancedRideCard({
   const [dropOffTime, setDropOffTime] = useState<string | null>(null);
   const [arrivalISO, setArrivalISO] = useState<string | null>(null);
 
-  const isOwn = !!myProfileId && myProfileId === ride.driver_id;
+  // Safety check - ensure we have valid ride data
+  if (!ride || !ride.ride_id || !ride.departure_time || !ride.driver) {
+    console.log('❌ EnhancedRideCard: Invalid ride data, returning empty View');
+    return <View />;
+  }
+  
+  // Step 2: Add time formatting - this might be the culprit
+  const safeRideId = ride?.ride_id ? String(ride.ride_id) : 'N/A';
+  const safeDriverName = ride?.driver?.name ? String(ride.driver.name) : 'Driver';
+  const safeSeats = ride?.available_seats !== undefined ? String(ride.available_seats) : 'N/A';
+  const safePrice = ride?.price_per_seat !== undefined ? String(ride.price_per_seat) : 'N/A';
 
-  const timePickup = useMemo(() => formatTime(ride.departure_time), [ride.departure_time]);
-  const dateDisplay = useMemo(() => formatDateShort(ride.departure_time), [ride.departure_time]);
+  // Ultra-safe time formatting
+  let safeTimePickup = 'Time N/A';
+  let safeDateDisplay = 'Date N/A';
+  
+  try {
+    if (ride?.departure_time && typeof ride.departure_time === 'string') {
+      const timeResult = formatTime(ride.departure_time);
+      const dateResult = formatDateShort(ride.departure_time);
+      
+      safeTimePickup = timeResult ? String(timeResult) : 'Time N/A';
+      safeDateDisplay = dateResult ? String(dateResult) : 'Date N/A';
+    }
+  } catch (error) {
+    console.log('Time formatting error:', error);
+    safeTimePickup = 'Time Error';
+    safeDateDisplay = 'Date Error';
+  }
+
+  // Step 3: Add driver rating and total_rides - VERY SUSPICIOUS FIELDS
+  const safeDriverRating = ride?.driver?.rating !== undefined && ride?.driver?.rating !== null 
+    ? String(Number(ride.driver.rating).toFixed(1))
+    : 'New';
+    
+  const safeDriverTotalRides = ride?.driver?.total_rides !== undefined && ride?.driver?.total_rides !== null
+    ? String(ride.driver.total_rides)
+    : '0';
+
+  const safeStartLocation = ride?.start_location ? String(ride.start_location) : 'Start location N/A';
+  const safeEndLocation = ride?.end_location ? String(ride.end_location) : 'End location N/A';
 
   // Calculate estimated drop-off time
   useEffect(() => {
     const calculateDropOff = async () => {
-      const result = await calculateTravelTime(
-        ride.start_location,
-        ride.end_location,
-        ride.departure_time
-      );
-      
-      if (result) {
-        setArrivalISO(result.estimatedArrival);
-        setDropOffTime(formatTime(result.estimatedArrival));
+      try {
+        const result = await calculateTravelTime(
+          ride.start_location,
+          ride.end_location,
+          ride.departure_time
+        );
+        
+        if (result) {
+          setArrivalISO(result.estimatedArrival);
+          const formattedTime = formatTime(result.estimatedArrival);
+          setDropOffTime(String(formattedTime || 'Calculating...'));
+        }
+      } catch (e) {
+        console.log('🚗 calculateDropOff error:', e);
+        setDropOffTime('Calculating...');
       }
     };
 
     calculateDropOff();
   }, [ride.start_location, ride.end_location, ride.departure_time]);
 
-  // limit status union for details page
-  const detailsStatus: 'pending' | 'accepted' | 'declined' | 'available' =
-    (['pending', 'accepted', 'declined', 'available'] as const).includes(ride.status as any)
-      ? (ride.status as any)
-      : 'available';
+  // FINAL: Complete EnhancedRideCard with fixed conditional rendering
+  const isOwn = !!myProfileId && myProfileId === ride.driver_id;
+  
+  // Helper functions
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return { backgroundColor: '#FEF3C7', color: '#92400E', text: 'Request Pending' };
+      case 'accepted':
+        return { backgroundColor: '#D1FAE5', color: '#065F46', text: 'Request Accepted' };
+      case 'declined':
+      case 'rejected':
+        return { backgroundColor: '#FEE2E2', color: '#991B1B', text: 'Request Declined' };
+      default:
+        return null;
+    }
+  };
 
-  const openDetails = () => {
-    navigation.navigate('RideDetails', {
-      rideId: ride.ride_id,
-      source: 'search', // Indicate this came from search results
-    } as any);
+  const getRelevanceBadgeColor = (score?: number) => {
+    if (!score) return '#F3F4F6';
+    if (score >= 80) return '#DCFCE7';
+    if (score >= 60) return '#FEF3C7';
+    return '#FEE2E2';
+  };
+
+  const getRelevanceTextColor = (score?: number) => {
+    if (!score) return '#6B7280';
+    if (score >= 80) return '#15803D';
+    if (score >= 60) return '#92400E';
+    return '#991B1B';
   };
 
   const handleQuickRequest = async () => {
@@ -84,165 +146,174 @@ export default function EnhancedRideCard({
     }
   };
 
-  // Helper function to get status badge styling
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return { backgroundColor: '#FEF3C7', color: '#92400E', text: 'Request Pending' };
-      case 'accepted':
-        return { backgroundColor: '#D1FAE5', color: '#065F46', text: 'Request Accepted' };
-      case 'declined':
-      case 'rejected':
-        return { backgroundColor: '#FEE2E2', color: '#991B1B', text: 'Request Declined' };
-      default:
-        return null;
-    }
+  const openDetails = () => {
+    navigation.navigate('RideDetails', {
+      rideId: ride.ride_id,
+      source: 'search',
+    } as any);
   };
-
-  // Helper function to get popularity level
-  const getPopularityLevel = (score: number) => {
-    if (score >= 80) return { level: 'High', color: '#10B981', icon: 'trending-up' };
-    if (score >= 50) return { level: 'Medium', color: '#F59E0B', icon: 'trending-up' };
-    if (score >= 20) return { level: 'Low', color: '#6B7280', icon: 'trending-up' };
-    return { level: 'New', color: '#9CA3AF', icon: 'sparkles' };
-  };
-
-  // Helper function to get relevance badge color
-  const getRelevanceBadgeColor = (score?: number) => {
-    if (!score) return '#F3F4F6';
-    if (score >= 80) return '#DCFCE7'; // green
-    if (score >= 60) return '#FEF3C7'; // yellow
-    return '#FEE2E2'; // red
-  };
-
-  const getRelevanceTextColor = (score?: number) => {
-    if (!score) return '#6B7280';
-    if (score >= 80) return '#15803D';
-    if (score >= 60) return '#92400E';
-    return '#991B1B';
-  };
-
-  const popularityData = getPopularityLevel(ride.popularity_score);
 
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={openDetails} style={s.card}>
-      {/* Enhanced Header with Badges */}
-      {showEnhancedData && (
-        <View style={s.enhancedHeader}>
-          <View style={s.badgeRow}>
-            {/* Popularity Badge */}
-            <View style={[s.popularityBadge, { backgroundColor: popularityData.color + '20' }]}>
-              <Ionicons name={popularityData.icon as any} size={10} color={popularityData.color} />
-              <Text style={[s.popularityText, { color: popularityData.color }]}>
-                {popularityData.level}
-              </Text>
+    <View>
+      {/* Enhanced header with badges - USING SAFE CONDITIONAL RENDERING */}
+      {(() => {
+        if (showEnhancedData) {
+          return (
+            <View style={s.enhancedHeader}>
+              <View style={s.badgeRow}>
+                {/* Relevance Score Badge */}
+                {(() => {
+                  if (ride.relevance_score) {
+                    return (
+                      <View style={[
+                        s.relevanceBadge, 
+                        { backgroundColor: getRelevanceBadgeColor(ride.relevance_score) }
+                      ]}>
+                        <Text style={[
+                          s.relevanceText, 
+                          { color: getRelevanceTextColor(ride.relevance_score) }
+                        ]}>
+                          {String(Math.round(ride.relevance_score || 0))}% match
+                        </Text>
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
+                
+                {/* Distance Badge */}
+                {(() => {
+                  if (ride.distance_miles) {
+                    return (
+                      <View style={s.distanceBadge}>
+                        <Ionicons name="location-outline" size={10} color="#6B7280" />
+                        <Text style={s.distanceText}>{String(ride.distance_miles.toFixed(1))} mi</Text>
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
+              </View>
             </View>
+          );
+        }
+        return null;
+      })()}
 
-            {/* Relevance Score */}
-            {ride.relevance_score !== undefined && (
-              <View style={[s.relevanceBadge, { 
-                backgroundColor: getRelevanceBadgeColor(ride.relevance_score) 
-              }]}>
-                <Text style={[s.relevanceText, { 
-                  color: getRelevanceTextColor(ride.relevance_score) 
-                }]}>
-                  {Math.round(ride.relevance_score)}% match
-                </Text>
-              </View>
-            )}
-
-            {/* Distance Badge */}
-            {ride.distance_km !== undefined && (
-              <View style={s.distanceBadge}>
-                <Ionicons name="location-outline" size={10} color="#6B7280" />
-                <Text style={s.distanceText}>{ride.distance_km}km</Text>
-              </View>
-            )}
-          </View>
+      <TouchableOpacity activeOpacity={0.85} onPress={openDetails} style={s.card}>
+      {/* Left: Route and time info */}
+      <View style={{ flex: 1 }}>
+        {/* Date Header */}
+        <View style={s.dateHeader}>
+          <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+          <Text style={s.dateText}>{safeDateDisplay}</Text>
         </View>
-      )}
+        
+        <View style={s.row}>
+          <View style={[s.dot, { backgroundColor: '#3B82F6' }]} />
+          <Text style={s.smallLabel}>Pick-up</Text>
+          <Text style={s.time}>{safeTimePickup}</Text>
+        </View>
+        <View style={s.row}>
+          <View style={[s.dot, { backgroundColor: '#10B981' }]} />
+          <Text style={s.smallLabel}>Drop-off</Text>
+          <Text style={s.time}>{dropOffTime || '—'}</Text>
+        </View>
 
-      {/* Main Content */}
-      <View style={s.mainContent}>
-        {/* Left: labels/times */}
-        <View style={{ flex: 1 }}>
-          {/* Date header */}
-          <View style={s.dateHeader}>
-            <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
-            <Text style={s.dateText}>{dateDisplay}</Text>
-          </View>
-          
-          <View style={s.row}>
-            <View style={[s.dot, { backgroundColor: '#3B82F6' }]} />
-            <Text style={s.smallLabel}>Pick-up</Text>
-            <Text style={s.time}>{timePickup}</Text>
-          </View>
-          <View style={s.row}>
-            <View style={[s.dot, { backgroundColor: '#10B981' }]} />
-            <Text style={s.smallLabel}>Drop-off</Text>
-            <Text style={s.time}>{dropOffTime || '—'}</Text>
-          </View>
+        {/* Addresses */}
+        <Text numberOfLines={1} style={s.addr}>{safeStartLocation}</Text>
+        <View style={s.divider} />
+        <Text numberOfLines={1} style={s.addr}>{safeEndLocation}</Text>
+      </View>
 
-          {/* Addresses */}
-          <Text numberOfLines={1} style={s.addr}>{ride.start_location}</Text>
-          <View style={s.divider} />
-          <Text numberOfLines={1} style={s.addr}>{ride.end_location}</Text>
-
-          {/* Driver info */}
-          <View style={s.driverRow}>
-            {ride.driver.photo ? (
+      {/* Right: Stats and price */}
+      <View style={s.rightCol}>
+        <View style={s.seatsRow}>
+          <Ionicons name="person-outline" size={14} color="#6B7280" />
+          <Text style={s.seatsTxt}>{safeSeats} left</Text>
+        </View>
+        
+        {/* Driver info */}
+        <View style={{ alignItems: 'center', marginVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            {ride.driver?.photo ? (
               <Image source={{ uri: ride.driver.photo }} style={s.driverAvatar} />
             ) : (
               <View style={[s.driverAvatar, s.driverAvatarFallback]}>
-                <Text style={s.driverAvatarText}>
-                  {ride.driver.name?.charAt(0) ?? 'D'}
-                </Text>
+                <Text style={s.driverAvatarText}>{String(safeDriverName.charAt(0) || '?')}</Text>
               </View>
             )}
-            <View style={s.driverInfo}>
-              <Text style={s.driverName}>{ride.driver.name}</Text>
-              {ride.driver.rating !== undefined && (
-                <View style={s.ratingRow}>
-                  <Ionicons name="star" size={12} color="#F59E0B" />
-                  <Text style={s.ratingText}>{ride.driver.rating.toFixed(1)}</Text>
-                  {ride.driver.total_rides && (
-                    <Text style={s.ratingSubText}>({ride.driver.total_rides} rides)</Text>
-                  )}
-                </View>
-              )}
-            </View>
+          </View>
+          <Text style={s.driverName}>{safeDriverName}</Text>
+          <View style={s.ratingRow}>
+            <Ionicons name="star" size={12} color="#F59E0B" />
+            <Text style={s.ratingText}>{safeDriverRating}</Text>
+            {(() => {
+              const totalRides = ride?.driver?.total_rides;
+              if (totalRides !== undefined && totalRides !== null && typeof totalRides === 'number' && totalRides > 0) {
+                return <Text style={s.ratingSubText}>({String(totalRides)} rides)</Text>;
+              }
+              return null;
+            })()}
           </View>
         </View>
-
-        {/* Right: seats & price */}
-        <View style={s.rightCol}>
-          <View style={s.seatsRow}>
-            <Ionicons name="people" size={14} color="#6B7280" />
-            <Text style={s.seatsTxt}>{ride.available_seats}</Text>
-          </View>
-          
-          {/* Request Status Badge */}
-          {myRequestStatus && getStatusStyle(myRequestStatus) && (
-            <View style={[s.statusBadge, { backgroundColor: getStatusStyle(myRequestStatus)!.backgroundColor }]}>
-              <Text style={[s.statusText, { color: getStatusStyle(myRequestStatus)!.color }]}>
-                {getStatusStyle(myRequestStatus)!.text}
-              </Text>
-            </View>
-          )}
-          
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={s.price}>${ride.price_per_seat}</Text>
-            <Text style={s.priceSub}>per seat</Text>
-            {showEnhancedData && ride.popularity_score > 60 && (
-              <View style={s.trendingPill}>
-                <Ionicons name="flame" size={10} color="#F59E0B" />
-                <Text style={s.trendingText}>Popular</Text>
-              </View>
-            )}
-          </View>
+        
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={s.price}>${safePrice}</Text>
+          <Text style={s.priceSub}>per seat</Text>
         </View>
       </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      {/* Status Badge - USING SAFE CONDITIONAL RENDERING */}
+      {(() => {
+        if (myRequestStatus && getStatusStyle(myRequestStatus)) {
+          const statusStyle = getStatusStyle(myRequestStatus);
+          return (
+            <View style={{ marginTop: 8, paddingHorizontal: 12 }}>
+              <View style={[
+                s.statusBadge,
+                { backgroundColor: statusStyle?.backgroundColor }
+              ]}>
+                <Text style={[
+                  s.statusText,
+                  { color: statusStyle?.color }
+                ]}>
+                  {String(statusStyle?.text || '')}
+                </Text>
+              </View>
+            </View>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Action Button - USING SAFE CONDITIONAL RENDERING */}
+      {(() => {
+        if (role === 'search' && !isOwn && !myRequestStatus) {
+          return (
+            <View style={{ marginTop: 8, paddingHorizontal: 12 }}>
+              <TouchableOpacity
+                onPress={handleQuickRequest}
+                disabled={loading}
+                style={{
+                  backgroundColor: '#7C3AED',
+                  borderRadius: 8,
+                  paddingVertical: 8,
+                  alignItems: 'center',
+                  opacity: loading ? 0.7 : 1,
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
+                  {loading ? 'Requesting...' : 'Quick Request'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        return null;
+      })()}
+    </View>
   );
 }
 
@@ -254,13 +325,15 @@ const s = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    padding: 12,
     marginBottom: 12,
+    flexDirection: 'row',
+    gap: 12,
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 1,
-    overflow: 'hidden',
   },
 
   enhancedHeader: {
@@ -277,18 +350,6 @@ const s = StyleSheet.create({
     gap: 8,
   },
 
-  popularityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    gap: 3,
-  },
-  popularityText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
 
   relevanceBadge: {
     paddingHorizontal: 6,
@@ -399,21 +460,6 @@ const s = StyleSheet.create({
   price: { color: purple, fontWeight: '700' },
   priceSub: { color: '#6B7280', fontSize: 12 },
 
-  trendingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginTop: 4,
-    gap: 2,
-  },
-  trendingText: {
-    fontSize: 9,
-    color: '#F59E0B',
-    fontWeight: '600',
-  },
 
   statusBadge: {
     paddingHorizontal: 8,
