@@ -70,6 +70,7 @@ export default function DriverRideItem({ ride }: Props) {
       end_address: ride.end_location,
       departureISO: ride.departure_time,
       price_per_seat: ride.price_per_seat,
+      available_seats: ride.available_seats,
       start_lat: (ride as any).start_lat,
       start_lng: (ride as any).start_lng,
       end_lat:   (ride as any).end_lat,

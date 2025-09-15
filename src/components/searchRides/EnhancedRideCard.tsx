@@ -265,9 +265,31 @@ export default function EnhancedRideCard({
       </View>
       </TouchableOpacity>
 
+      {/* Owner Badge - Show if this is user's own ride */}
+      {(() => {
+        if (isOwn) {
+          return (
+            <View style={{ marginTop: 8, paddingHorizontal: 12 }}>
+              <View style={[
+                s.statusBadge,
+                { backgroundColor: '#EDF2F7', borderWidth: 1, borderColor: '#7C3AED' }
+              ]}>
+                <Text style={[
+                  s.statusText,
+                  { color: '#7C3AED', fontWeight: '600' }
+                ]}>
+                  Your Ride
+                </Text>
+              </View>
+            </View>
+          );
+        }
+        return null;
+      })()}
+
       {/* Status Badge - USING SAFE CONDITIONAL RENDERING */}
       {(() => {
-        if (myRequestStatus && getStatusStyle(myRequestStatus)) {
+        if (myRequestStatus && getStatusStyle(myRequestStatus) && !isOwn) {
           const statusStyle = getStatusStyle(myRequestStatus);
           return (
             <View style={{ marginTop: 8, paddingHorizontal: 12 }}>

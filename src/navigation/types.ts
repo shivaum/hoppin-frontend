@@ -24,6 +24,7 @@ export type EditRide = {
   end_lng?: number;
   departureISO: string;
   price_per_seat?: number;
+  available_seats?: number;
   requests?: Array<{
     id: string;
     rider: { name: string; photo?: string; rating?: number };

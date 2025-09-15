@@ -39,9 +39,10 @@ export default function MyRides() {
 
   return (
     <View style={styles.root}>
-      {/* Offer Ride Button */}
+      {/* Offer Ride Button - Top Right */}
       {isDriver && (
-        <View style={styles.offerRideContainer}>
+        <View style={styles.headerContainer}>
+          <View style={styles.headerSpacer} />
           <TouchableOpacity
             style={styles.offerBtn}
             onPress={goToOfferRide}
@@ -49,6 +50,7 @@ export default function MyRides() {
             accessibilityRole="button"
             accessibilityLabel="Offer a ride"
           >
+            <Ionicons name="add" size={16} color="#fff" style={{ marginRight: 6 }} />
             <Text style={styles.offerBtnText}>Offer ride</Text>
           </TouchableOpacity>
         </View>
@@ -113,19 +115,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
   },
-  offerRideContainer: {
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  headerSpacer: {
+    flex: 1,
   },
   offerBtn: {
     backgroundColor: '#111827',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
   },
   offerBtnText: {
     color: '#fff',
-    fontWeight: '700',
+    fontWeight: '600',
+    fontSize: 14,
   },
   segmentWrap: {
     flexDirection: 'row',

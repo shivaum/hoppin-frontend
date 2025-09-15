@@ -98,7 +98,7 @@ export default function DriverVerificationUpload() {
       await refreshUser();
       
       // Navigate back to profile
-      navigation.navigate('Tabs', { screen: 'Profile' });
+      navigation.navigate('Tabs');
     } catch (error: any) {
       Toast.show({
         type: 'error',

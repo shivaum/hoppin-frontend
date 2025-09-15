@@ -41,8 +41,55 @@ export default function SearchRides() {
   const [fromCoords, setFromCoords] = useState<LatLng>({ lat: 0, lng: 0 });
   const [toCoords, setToCoords] = useState<LatLng>({ lat: 0, lng: 0 });
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // Initialize with today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
   const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Date navigation functions
+  const navigateDate = (direction: 'prev' | 'next') => {
+    // Parse date string properly by adding time to avoid UTC issues
+    const currentDate = new Date(selectedDate + 'T00:00:00');
+    const today = new Date(getTodayDate() + 'T00:00:00');
+    
+    if (direction === 'prev') {
+      // Don't allow going to past dates
+      const prevDate = new Date(currentDate);
+      prevDate.setDate(currentDate.getDate() - 1);
+      
+      if (prevDate >= today) {
+        const year = prevDate.getFullYear();
+        const month = String(prevDate.getMonth() + 1).padStart(2, '0');
+        const day = String(prevDate.getDate()).padStart(2, '0');
+        setSelectedDate(`${year}-${month}-${day}`);
+      }
+    } else {
+      // Allow going to future dates
+      const nextDate = new Date(currentDate);
+      nextDate.setDate(currentDate.getDate() + 1);
+      
+      const year = nextDate.getFullYear();
+      const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+      const day = String(nextDate.getDate()).padStart(2, '0');
+      setSelectedDate(`${year}-${month}-${day}`);
+    }
+  };
+
+  const canNavigatePrev = () => {
+    // Parse date string properly by adding time to avoid UTC issues
+    const currentDate = new Date(selectedDate + 'T00:00:00');
+    const today = new Date(getTodayDate() + 'T00:00:00');
+    const prevDate = new Date(currentDate);
+    prevDate.setDate(currentDate.getDate() - 1);
+    return prevDate >= today;
+  };
 
   const [enhancedRides, setEnhancedRides] = useState<EnhancedSearchRide[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -143,7 +190,7 @@ export default function SearchRides() {
         from_lng: fromCoords.lng || undefined,
         to_lat: toCoords.lat || undefined,
         to_lng: toCoords.lng || undefined,
-        date: selectedDate || undefined,
+        date: selectedDate,
         ...advancedFilters,
       };
       
@@ -178,7 +225,7 @@ export default function SearchRides() {
   //   }, [hasSearched, fromText, toText, totalResults])
   // );
 
-  const dateBtnLabel = selectedDate ? formatDateShort(selectedDate + 'T00:00:00') : 'Select date';
+  const dateBtnLabel = formatDateShort(selectedDate + 'T00:00:00');
 
   const hasInputs = fromText.trim().length > 0 || toText.trim().length > 0;
   const totalResults = enhancedRides.length;
@@ -223,9 +270,26 @@ export default function SearchRides() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={styles.datePill} onPress={() => setCalendarOpen(true)}>
-          <Text style={styles.datePillText}>{dateBtnLabel || 'Select date'}</Text>
-        </TouchableOpacity>
+        <View style={styles.dateNavigationContainer}>
+          <TouchableOpacity 
+            style={[styles.dateArrow, !canNavigatePrev() && styles.dateArrowDisabled]} 
+            onPress={() => navigateDate('prev')}
+            disabled={!canNavigatePrev()}
+          >
+            <Ionicons name="chevron-back" size={20} color={canNavigatePrev() ? "#7C3AED" : "#D1D5DB"} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.datePill} onPress={() => setCalendarOpen(true)}>
+            <Text style={styles.datePillText}>{dateBtnLabel}</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.dateArrow} 
+            onPress={() => navigateDate('next')}
+          >
+            <Ionicons name="chevron-forward" size={20} color="#7C3AED" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Inputs */}
@@ -434,7 +498,7 @@ export default function SearchRides() {
       {/* Calendar modal */}
       <CalendarModal
         visible={calendarOpen}
-        initialDate={selectedDate || undefined}
+        initialDate={selectedDate}
         onClose={() => setCalendarOpen(false)}
         onConfirm={(iso) => {
           setSelectedDate(iso);
@@ -516,13 +580,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#DC2626',
   },
+  dateNavigationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  dateArrowDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
   datePill: { 
     paddingVertical: 8, 
-    paddingHorizontal: 12, 
+    paddingHorizontal: 16, 
     borderRadius: 14, 
-    backgroundColor: '#F3E8FF' 
+    backgroundColor: '#F3E8FF',
+    minWidth: 100,
+    alignItems: 'center',
   },
-  datePillText: { color: purple, fontWeight: '700' },
+  datePillText: { color: purple, fontWeight: '700', fontSize: 14 },
 
   inputs: { marginTop: 12 },
   inputShell: { marginBottom: 12 },

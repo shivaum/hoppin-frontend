@@ -80,13 +80,13 @@ export interface DriverRideRequest {
   id: string;
   status: "pending" | "accepted" | "declined" | "rejected";
   message: string | null;
-  created_at: string;           // ISO
+  requested_at: string;         // ISO - actual field name from backend
   rider: {
     id: string;
     name: string;
     photo: string | null;
-    rating: number;
-    total_rides: number;
+    rating?: number;            // Optional based on backend data
+    total_rides?: number;       // Optional based on backend data
   };
 }
 

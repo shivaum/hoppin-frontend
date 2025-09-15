@@ -21,6 +21,8 @@ import { declineRideRequest } from '../integrations/hopin-backend/driver';
 import type { LatLng } from 'react-native-maps';
 import { GOOGLE_MAPS_API_KEY } from '@env';
 import { calculateTravelTime } from '../utils/travelTime';
+import { formatDateShort, formatTime } from '../utils/dateTime';
+import { useAuth } from '../contexts/AuthContext';
 
 type Route = RouteProp<MainStackParamList, 'RideDetails'>;
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
@@ -64,6 +66,7 @@ const SHEET_COLLAPSED = Math.round(scrH * 0.42);
 export default function RideDetails() {
   const { params } = useRoute<Route>();
   const navigation = useNavigation<Nav>();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [rideData, setRideData] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -130,15 +133,15 @@ export default function RideDetails() {
       return { dateLabel: '', timeLabel: '', arrTimeLabel: undefined, departureISO: '', arrivalISO: '' };
     }
 
-    const d = new Date(rideData.ride.departure_time);
-    const a = (rideData as any).calculated_arrival ? new Date((rideData as any).calculated_arrival) : null;
+    const departureTime = rideData.ride.departure_time;
+    const arrivalTime = (rideData as any).calculated_arrival;
     
     return {
-      dateLabel: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
-      timeLabel: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      arrTimeLabel: a ? a.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
-      departureISO: rideData.ride.departure_time,
-      arrivalISO: a ? a.toISOString() : '',
+      dateLabel: formatDateShort(departureTime),
+      timeLabel: formatTime(departureTime),
+      arrTimeLabel: arrivalTime ? formatTime(arrivalTime) : undefined,
+      departureISO: departureTime,
+      arrivalISO: arrivalTime || '',
     };
   }, [rideData]);
 
@@ -212,6 +215,9 @@ export default function RideDetails() {
 
   const requestId: string | undefined = rideData?.user_request?.id;
   const myRequestStatus: string | null = rideData?.user_request?.status ?? null;
+
+  // Check if current user is the driver of this ride
+  const isOwnRide = !!user?.id && !!rideData?.ride?.driver_id && user.id === rideData.ride.driver_id;
 
   const baseFare = pricePerSeat ? Number(pricePerSeat) : 0;
   const fee = baseFare ? Number((baseFare * 0.1).toFixed(2)) : 0;
@@ -482,81 +488,98 @@ export default function RideDetails() {
             Insert policy here. Insert policy here. Insert policy here. Insert policy here.
           </Text>
 
-          {/* CTAs - Always show consistent buttons regardless of navigation source */}
-          {/* Show request status if user has already requested */}
-          {myRequestStatus && (
-            <View style={[styles.statusContainer, getRequestStatusStyle(myRequestStatus)]}>
+          {/* CTAs - Show different content based on ownership */}
+          {isOwnRide ? (
+            /* Show owner message when viewing own ride */
+            <View style={[styles.statusContainer, { backgroundColor: '#EDF2F7', borderWidth: 1, borderColor: '#7C3AED' }]}>
               <Ionicons 
-                name={getRequestStatusIcon(myRequestStatus)} 
+                name="car-outline" 
                 size={20} 
-                color={getRequestStatusColor(myRequestStatus)} 
+                color="#7C3AED" 
               />
-              <Text style={[styles.statusText, { color: getRequestStatusColor(myRequestStatus) }]}>
-                {getRequestStatusMessage(myRequestStatus)}
+              <Text style={[styles.statusText, { color: '#7C3AED', fontWeight: '600' }]}>
+                This is your ride. Manage it from the "My Rides" tab.
               </Text>
             </View>
-          )}
-          
-          {/* Show buttons unless request has been rejected/declined */}
-          {myRequestStatus !== 'rejected' && myRequestStatus !== 'declined' && (
+          ) : (
+            /* Show normal request/status content for non-owners */
             <>
-              {/* Request button - only show if no existing request */}
-              {!myRequestStatus && (
-                <TouchableOpacity
-                  style={[styles.cta, (loading || !canRequest) && { opacity: 0.6 }]}
-                  onPress={handleRequest}
-                  disabled={loading || !canRequest}
-                >
-                  <Text style={styles.ctaText}>{loading ? 'Requesting…' : 'Request ride'}</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Message and Cancel buttons - shown for all existing requests except rejected */}
+              {/* Show request status if user has already requested */}
               {myRequestStatus && (
-                <View style={styles.rowGap}>
-                  <TouchableOpacity
-                    style={[styles.secondary, loading && { opacity: 0.6 }]}
-                    onPress={handleCancel}
-                    disabled={loading}
-                  >
-                    <Text style={styles.secondaryText}>Cancel ride</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.primary}
-                    onPress={() => {
-                      const driverId = rideData?.driver?.id || rideData?.ride?.driver_id;
-                      const conversation = {
-                        id: `${rideId}-${driverId || 'unknown'}`,
-                        otherUser: {
-                          id: driverId || '',
-                          name: driverName,
-                          photo: driverPhoto,
-                        },
-                        ride: {
-                          id: rideId,
-                          departure_time: departureISO,
-                          start_location: startAddress,
-                          end_location: endAddress,
-                          start_lat: startFinal?.latitude,
-                          start_lng: startFinal?.longitude,
-                          end_lat: endFinal?.latitude,
-                          end_lng: endFinal?.longitude,
-                          price_per_seat: pricePerSeat,
-                          available_seats: availableSeats,
-                        },
-                        lastMessage: {
-                          content: 'No messages yet',
-                          created_at: new Date().toISOString(),
-                        },
-                        status: (status === 'accepted' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled') as 'confirmed' | 'pending' | 'cancelled',
-                        userRole: 'rider' as 'rider' | 'driver',
-                      };
-                      navigation.navigate('Chat', { conversation });
-                    }}
-                  >
-                    <Text style={styles.primaryText}>Message Driver</Text>
-                  </TouchableOpacity>
+                <View style={[styles.statusContainer, getRequestStatusStyle(myRequestStatus)]}>
+                  <Ionicons 
+                    name={getRequestStatusIcon(myRequestStatus)} 
+                    size={20} 
+                    color={getRequestStatusColor(myRequestStatus)} 
+                  />
+                  <Text style={[styles.statusText, { color: getRequestStatusColor(myRequestStatus) }]}>
+                    {getRequestStatusMessage(myRequestStatus)}
+                  </Text>
                 </View>
+              )}
+              
+              {/* Show buttons unless request has been rejected/declined */}
+              {myRequestStatus !== 'rejected' && myRequestStatus !== 'declined' && (
+                <>
+                  {/* Request button - only show if no existing request */}
+                  {!myRequestStatus && (
+                    <TouchableOpacity
+                      style={[styles.cta, (loading || !canRequest) && { opacity: 0.6 }]}
+                      onPress={handleRequest}
+                      disabled={loading || !canRequest}
+                    >
+                      <Text style={styles.ctaText}>{loading ? 'Requesting…' : 'Request ride'}</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Message and Cancel buttons - shown for all existing requests except rejected */}
+                  {myRequestStatus && (
+                    <View style={styles.rowGap}>
+                      <TouchableOpacity
+                        style={[styles.secondary, loading && { opacity: 0.6 }]}
+                        onPress={handleCancel}
+                        disabled={loading}
+                      >
+                        <Text style={styles.secondaryText}>Cancel ride</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.primary}
+                        onPress={() => {
+                          const driverId = rideData?.driver?.id || rideData?.ride?.driver_id;
+                          const conversation = {
+                            id: `${rideId}-${driverId || 'unknown'}`,
+                            otherUser: {
+                              id: driverId || '',
+                              name: driverName,
+                              photo: driverPhoto,
+                            },
+                            ride: {
+                              id: rideId,
+                              departure_time: departureISO,
+                              start_location: startAddress,
+                              end_location: endAddress,
+                              start_lat: startFinal?.latitude,
+                              start_lng: startFinal?.longitude,
+                              end_lat: endFinal?.latitude,
+                              end_lng: endFinal?.longitude,
+                              price_per_seat: pricePerSeat,
+                              available_seats: availableSeats,
+                            },
+                            lastMessage: {
+                              content: 'No messages yet',
+                              created_at: new Date().toISOString(),
+                            },
+                            status: (status === 'accepted' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled') as 'confirmed' | 'pending' | 'cancelled',
+                            userRole: 'rider' as 'rider' | 'driver',
+                          };
+                          navigation.navigate('Chat', { conversation });
+                        }}
+                      >
+                        <Text style={styles.primaryText}>Message Driver</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
               )}
             </>
           )}

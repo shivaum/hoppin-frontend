@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Image,
-  Animated, PanResponder, ScrollView, Dimensions, Alert
+  Animated, PanResponder, ScrollView, Dimensions, Alert, TextInput
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,6 +11,7 @@ import Map from '../components/common/map/Map';
 import { Ionicons } from '@expo/vector-icons';
 import LocationInput from '../components/common/inputs/LocationInput';
 import DateTimePickerRow from '../components/common/inputs/DateTimePickerRow';
+import CalendarModal from '../components/common/modals/CalendarModal';
 import Constants from 'expo-constants';
 import { acceptRideRequest, declineRideRequest, getRideDetails, updateRide } from '../integrations/hopin-backend/driver';
 import { parseAsLocalTime, formatDateForAPI } from '../utils/dateTime';
@@ -35,15 +36,21 @@ export default function EditRide() {
   const [dropoff, setDropoff] = useState('');
   const [departureISO, setDepartureISO] = useState(params.departureISO);
   const [departureDate, setDepartureDate] = useState(parseAsLocalTime(params.departureISO));
+  const [tempDate, setTempDate] = useState(parseAsLocalTime(params.departureISO)); // Temporary date for picker
+  const [availableSeats, setAvailableSeats] = useState(String(params.available_seats || 1));
+  const [pricePerSeat, setPricePerSeat] = useState(String(params.price_per_seat || 5));
   
   // Track original values to detect changes
   const [originalValues] = useState({
     pickup: params.start_address || '',
     dropoff: params.end_address || '',
     departureISO: params.departureISO,
+    availableSeats: String(params.available_seats || 1),
+    pricePerSeat: String(params.price_per_seat || 5),
   });
   
   // date/time picker states
+  const [showCalendar, setShowCalendar] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -61,7 +68,7 @@ export default function EditRide() {
         id: req.id,
         status: 'pending' as const, // Default to pending for nav params
         message: null,
-        created_at: new Date().toISOString(),
+        requested_at: new Date().toISOString(),
         rider: {
           id: '', // Not available in nav params
           name: req.rider.name,
@@ -89,24 +96,25 @@ export default function EditRide() {
     return () => clearTimeout(timer);
   }, [params.start_address, params.end_address]);
 
+  // Function to fetch fresh ride data from API
+  const fetchRideData = async () => {
+    if (!params.rideId) return;
+    
+    setIsLoading(true);
+    setError(null);
+    try {
+      const freshRideData = await getRideDetails(params.rideId);
+      setLocalRequests(freshRideData.requests || []);
+    } catch (error: any) {
+      console.error('Failed to fetch ride details:', error);
+      setError(error.message || 'Failed to load ride details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Fetch fresh ride data on mount
   useEffect(() => {
-    const fetchRideData = async () => {
-      if (!params.rideId) return;
-      
-      setIsLoading(true);
-      setError(null);
-      try {
-        const freshRideData = await getRideDetails(params.rideId);
-        setLocalRequests(freshRideData.requests || []);
-      } catch (error: any) {
-        console.error('Failed to fetch ride details:', error);
-        setError(error.message || 'Failed to load ride details');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchRideData();
   }, [params.rideId]);
 
@@ -144,14 +152,96 @@ export default function EditRide() {
     [localRequests]
   );
 
+  // Helper function to format timestamps
+  const formatTimestamp = (isoString: string) => {
+    if (!isoString) {
+      return 'Unknown';
+    }
+    
+    try {
+      // Parse the UTC timestamp from the database
+      // If the string doesn't end with 'Z', assume it's UTC and add 'Z'
+      const utcString = isoString.endsWith('Z') ? isoString : `${isoString}Z`;
+      const utcDate = new Date(utcString);
+      
+      // Check if date is valid
+      if (isNaN(utcDate.getTime())) {
+        console.log('Invalid date from:', isoString);
+        return 'Unknown';
+      }
+      
+      // Get current time in local timezone
+      const now = new Date();
+      
+      // Calculate difference using UTC timestamps (both are already in UTC/local time)
+      const diffMs = now.getTime() - utcDate.getTime();
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      // Handle negative differences (future dates - should not occur in normal app usage)
+      if (diffMs < 0) {
+        return 'In the future';
+      }
+      
+      // First 1 minute: show "Just now"
+      if (diffMins < 1) {
+        return 'Just now';
+      }
+      // First 60 minutes: show minute-by-minute
+      else if (diffMins < 60) {
+        return diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`;
+      }
+      // First 24 hours: show hour-by-hour
+      else if (diffHours < 24) {
+        return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+      }
+      // After 24 hours: use existing day-by-day logic
+      else if (diffDays < 7) {
+        return `${diffDays}d ago`;
+      } else {
+        // Convert UTC date to local timezone for display
+        return utcDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      }
+    } catch (error) {
+      console.log('Error parsing timestamp:', error, isoString);
+      return 'Unknown';
+    }
+  };
+
+  // Helper function to get the appropriate timestamp based on status
+  const getRelevantTimestamp = (request: any) => {
+    // For pending requests, show when they were originally created (requested)
+    if (request.status === 'pending') {
+      return request.requested_at || request.created_at;
+    }
+    // For accepted/rejected/declined requests, show when the status was last changed
+    else {
+      return request.updated_at || request.requested_at || request.created_at;
+    }
+  };
+
+  // Helper function to get timestamp label based on status
+  const getTimestampLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Requested';
+      case 'accepted':
+        return 'Accepted';
+      case 'declined':
+      case 'rejected':
+        return 'Declined';
+      default:
+        return 'Requested';
+    }
+  };
+
   const handleAcceptRequest = async (requestId: string) => {
     setProcessingRequests(prev => new Set([...prev, requestId]));
     try {
       await acceptRideRequest(requestId);
-      // Update local state to show as accepted
-      setLocalRequests(prev => 
-        prev.map(r => r.id === requestId ? { ...r, status: 'accepted' as const } : r)
-      );
+      // Fetch fresh data from API to get the real updated_at timestamp
+      await fetchRideData();
       Alert.alert('Success', 'Ride request accepted!');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to accept request');
@@ -168,10 +258,8 @@ export default function EditRide() {
     setProcessingRequests(prev => new Set([...prev, requestId]));
     try {
       await declineRideRequest(requestId);
-      // Update status to 'declined' so it gets filtered out
-      setLocalRequests(prev => 
-        prev.map(r => r.id === requestId ? { ...r, status: 'declined' as const } : r)
-      );
+      // Fetch fresh data from API to get the real updated_at timestamp
+      await fetchRideData();
       Alert.alert('Success', 'Ride request declined!');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to decline request');
@@ -184,6 +272,16 @@ export default function EditRide() {
     }
   };
 
+  // Helper function to reset to reasonable future time
+  const resetToReasonableTime = () => {
+    const now = new Date();
+    // Add 1 hour to current time as a reasonable default
+    now.setHours(now.getHours() + 1, 0, 0, 0);
+    setDepartureDate(now);
+    setTempDate(now);
+    setDepartureISO(formatDateForAPI(now));
+  };
+
   // Date/time picker handlers
   const handleDateChange = (_: any, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -191,30 +289,77 @@ export default function EditRide() {
       const newDate = new Date(departureDate);
       newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       setDepartureDate(newDate);
+      setTempDate(newDate);
       // Create ISO string that represents local time, not UTC
       setDepartureISO(formatDateForAPI(newDate));
     }
   };
 
   const handleTimeChange = (_: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
+    // Only update temp date during picker interaction
     if (selectedTime) {
-      const newDate = new Date(departureDate);
-      newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
-      setDepartureDate(newDate);
-      // Create ISO string that represents local time, not UTC
-      setDepartureISO(formatDateForAPI(newDate));
+      setTempDate(selectedTime);
     }
+  };
+  
+  const handleTimeConfirm = () => {
+    // Validate the selected time
+    const now = new Date();
+    if (tempDate <= now) {
+      Alert.alert(
+        'Invalid Time', 
+        'Please select a time in the future.',
+        [
+          {
+            text: 'OK',
+            onPress: resetToReasonableTime
+          }
+        ]
+      );
+      setShowTimePicker(false);
+      return;
+    }
+    
+    // Apply the time to the departure date
+    const newDate = new Date(departureDate);
+    newDate.setHours(tempDate.getHours(), tempDate.getMinutes(), 0, 0);
+    setDepartureDate(newDate);
+    setDepartureISO(formatDateForAPI(newDate));
+    setShowTimePicker(false);
+  };
+  
+  const handleTimeCancel = () => {
+    // Reset temp date to current departure date
+    setTempDate(departureDate);
+    setShowTimePicker(false);
+  };
+
+  const handleCalendarConfirm = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    const newDate = new Date(departureDate);
+    newDate.setFullYear(y, m - 1, d);
+    setDepartureDate(newDate);
+    setDepartureISO(formatDateForAPI(newDate));
+    setShowCalendar(false);
   };
 
   // Using utility function from dateTime.ts
   
+  // Helper function to check if selected date/time is in the future
+  const isDateTimeInFuture = () => {
+    const now = new Date();
+    const selectedDateTime = new Date(departureDate);
+    return selectedDateTime > now;
+  };
+
   // Check if any fields have been modified
   const hasChanges = () => {
     return (
       pickup !== originalValues.pickup ||
       dropoff !== originalValues.dropoff ||
-      departureISO !== originalValues.departureISO
+      departureISO !== originalValues.departureISO ||
+      availableSeats !== originalValues.availableSeats ||
+      pricePerSeat !== originalValues.pricePerSeat
     );
   };
 
@@ -225,6 +370,28 @@ export default function EditRide() {
   const saveChanges = async () => {
     if (isSaving) return;
     
+    // Validate date/time is in the future
+    if (!isDateTimeInFuture()) {
+      Alert.alert(
+        'Invalid Date/Time', 
+        'Please select a departure time in the future. You cannot schedule rides for past dates or times.'
+      );
+      return;
+    }
+    
+    // Additional validation: check if time is at least 15 minutes in the future for edits
+    const now = new Date();
+    const selectedDateTime = new Date(departureDate);
+    const timeDiffMinutes = (selectedDateTime.getTime() - now.getTime()) / (1000 * 60);
+    
+    if (timeDiffMinutes < 15) {
+      Alert.alert(
+        'Too Soon', 
+        'Please select a departure time at least 15 minutes in the future to allow riders to adjust their plans.'
+      );
+      return;
+    }
+    
     setIsSaving(true);
     try {
       // Call update ride API
@@ -232,6 +399,8 @@ export default function EditRide() {
         start_location: pickup,
         end_location: dropoff,
         departure_time: departureISO,
+        available_seats: Number(availableSeats),
+        price_per_seat: Number(pricePerSeat),
       };
 
       await updateRide(params.rideId, updateData);
@@ -298,17 +467,48 @@ export default function EditRide() {
             }}
           />
 
+          {/* Available Seats */}
+          <Text style={[styles.label, { marginTop: 12 }]}>Available seats</Text>
+          <View style={styles.fakeInput}>
+            <TextInput
+              style={styles.textInput}
+              value={availableSeats}
+              onChangeText={setAvailableSeats}
+              placeholder="Number of seats"
+              keyboardType="numeric"
+              maxLength={1}
+            />
+          </View>
+
+          {/* Price per Seat */}
+          <Text style={[styles.label, { marginTop: 12 }]}>Price per seat ($)</Text>
+          <View style={styles.fakeInput}>
+            <TextInput
+              style={styles.textInput}
+              value={pricePerSeat}
+              onChangeText={setPricePerSeat}
+              placeholder="Price in dollars"
+              keyboardType="numeric"
+            />
+          </View>
+
           <View style={{ height: 12 }} />
 
           {/* Date & Time Picker */}
           <DateTimePickerRow
             date={departureDate}
-            onDatePress={() => setShowDatePicker(true)}
-            onTimePress={() => setShowTimePicker(true)}
-            showDate={showDatePicker}
+            onDatePress={() => setShowCalendar(true)}
+            onTimePress={() => {
+              setTempDate(departureDate);
+              setShowTimePicker(true);
+            }}
+            showDate={false}
             showTime={showTimePicker}
             onChangeDate={handleDateChange}
             onChangeTime={handleTimeChange}
+            tempDate={tempDate}
+            onTimeConfirm={handleTimeConfirm}
+            onTimeCancel={handleTimeCancel}
           />
 
           {/* Loading state */}
@@ -357,6 +557,10 @@ export default function EditRide() {
                           {r.status === 'accepted' ? 'Confirmed' : 'Pending'}
                         </Text>
                       </View>
+                      {/* Timestamp */}
+                      <Text style={styles.timestampText}>
+                        {getTimestampLabel(r.status)}: {formatTimestamp(getRelevantTimestamp(r))}
+                      </Text>
                     </View>
                     {isPending && (
                       <View style={styles.actionButtons}>
@@ -390,6 +594,15 @@ export default function EditRide() {
             </>
           )}
 
+          {/* Date/Time Validation Warning */}
+          {!isDateTimeInFuture() && (
+            <View style={styles.warningContainer}>
+              <Text style={styles.warningText}>
+                ⚠️ Please select a future date and time for your ride.
+              </Text>
+            </View>
+          )}
+          
           {/* Action buttons */}
           <View style={styles.buttonRow}>
             <TouchableOpacity 
@@ -402,14 +615,14 @@ export default function EditRide() {
             <TouchableOpacity 
               style={[
                 styles.saveBtn, 
-                (!hasChanges() || isSaving) && styles.saveBtnDisabled
+                (!hasChanges() || isSaving || !isDateTimeInFuture()) && styles.saveBtnDisabled
               ]} 
               onPress={saveChanges}
-              disabled={!hasChanges() || isSaving}
+              disabled={!hasChanges() || isSaving || !isDateTimeInFuture()}
             >
               <Text style={[
                 styles.saveBtnText,
-                (!hasChanges() || isSaving) && styles.saveBtnTextDisabled
+                (!hasChanges() || isSaving || !isDateTimeInFuture()) && styles.saveBtnTextDisabled
               ]}>
                 {isSaving ? 'Saving...' : 'Save changes'}
               </Text>
@@ -417,6 +630,14 @@ export default function EditRide() {
           </View>
         </ScrollView>
       </Animated.View>
+
+      {/* Calendar Modal */}
+      <CalendarModal
+        visible={showCalendar}
+        initialDate={departureISO ? departureISO.split('T')[0] : undefined}
+        onClose={() => setShowCalendar(false)}
+        onConfirm={handleCalendarConfirm}
+      />
     </View>
   );
 }
@@ -452,6 +673,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, justifyContent: 'center',
   },
   fakeInputText: { color: '#6B7280' },
+  textInput: {
+    color: '#111827',
+    fontSize: 16,
+    padding: 0,
+  },
 
   riderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
   avatar: { width: 36, height: 36, borderRadius: 18, marginRight: 12 },
@@ -538,5 +764,24 @@ const styles = StyleSheet.create({
   },
   saveBtnTextDisabled: {
     color: '#D1D5DB',
+  },
+  timestampText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  warningContainer: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  warningText: {
+    color: '#92400E',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

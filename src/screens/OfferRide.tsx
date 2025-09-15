@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,8 +17,10 @@ import Constants from 'expo-constants';
 import Map from '../components/common/map/Map';
 import LocationInput, { LatLng } from '../components/common/inputs/LocationInput';
 import CalendarModal from '../components/common/modals/CalendarModal';
+import DateTimePickerRow from '../components/common/inputs/DateTimePickerRow';
 import { createRide } from '../integrations/hopin-backend/driver';
 import type { MainStackParamList } from '../navigation/types';
+import { formatDateForAPI } from '../utils/dateTime';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, any>;
 
@@ -31,49 +34,122 @@ export default function OfferRide() {
   const [pickup, setPickup] = useState<LatLng | null>(null);
   const [dropoff, setDropoff] = useState<LatLng | null>(null);
 
+  // Initialize with next closest hour
+  const getNextHour = () => {
+    const now = new Date();
+    const nextHour = new Date(now);
+    nextHour.setHours(now.getHours() + 1, 0, 0, 0); // Next hour, zero minutes/seconds
+    return nextHour;
+  };
+  
+  const [departureDate, setDepartureDate] = useState<Date>(getNextHour());
   const [dateISO, setDateISO] = useState<string | null>(null);
-  const [timeISO, setTimeISO] = useState<string | null>(null);
+  const [tempDate, setTempDate] = useState<Date>(getNextHour()); // Temporary date for picker
 
-  const [showDate, setShowDate] = useState(false);
-  const [showTime, setShowTime] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
+  const [availableSeats, setAvailableSeats] = useState('1');
+  const [pricePerSeat, setPricePerSeat] = useState('5');
+
+  // Helper function to check if selected date/time is in the future
+  const isDateTimeInFuture = () => {
+    if (!dateISO) return false;
+    const now = new Date();
+    const selectedDateTime = new Date(departureDate);
+    return selectedDateTime > now;
+  };
 
   // Derived
-  const canSubmit = !!pickup && !!dropoff && !!dateISO && !!timeISO && !!pickupText && !!dropoffText;
+  const canSubmit = !!pickup && !!dropoff && !!dateISO && !!pickupText && !!dropoffText && !!availableSeats && !!pricePerSeat && Number(availableSeats) > 0 && Number(pricePerSeat) > 0 && isDateTimeInFuture();
 
   const departureISO = useMemo(() => {
-    if (!dateISO || !timeISO) return null;
-    // Combine date + time (both YYYY-MM-DD and HH:mm in local)
-    const [y, m, d] = dateISO.split('-').map(Number);
-    const [hh, mm] = timeISO.split(':').map(Number);
-    const dt = new Date(y, (m - 1), d, hh, mm, 0, 0);
-    return dt.toISOString();
-  }, [dateISO, timeISO]);
+    if (!dateISO) return null;
+    return formatDateForAPI(departureDate);
+  }, [dateISO, departureDate]);
 
   // Readable labels
   const dateLabel = useMemo(() => {
-    if (!dateISO) return 'Date';
-    const [y, m, d] = dateISO.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric' });
-  }, [dateISO]);
+    if (!dateISO) return 'Select date';
+    return departureDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }, [dateISO, departureDate]);
 
-  const timeLabel = useMemo(() => {
-    if (!timeISO) return 'Time';
-    const [hh, mm] = timeISO.split(':').map(Number);
-    const d = new Date();
-    d.setHours(hh, mm, 0, 0);
-    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  }, [timeISO]);
+  // Helper function to reset to next hour
+  const resetToCurrentTime = () => {
+    const nextHour = getNextHour();
+    setDepartureDate(nextHour);
+    setTempDate(nextHour);
+    
+    // Update dateISO
+    const year = nextHour.getFullYear();
+    const month = String(nextHour.getMonth() + 1).padStart(2, '0');
+    const day = String(nextHour.getDate()).padStart(2, '0');
+    setDateISO(`${year}-${month}-${day}`);
+  };
 
-  // Simple time picker (cross-platform)
-  const openTimePicker = () => setShowTime(true);
+  // Date/time picker handlers
+  const handleDateChange = (_: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const newDate = new Date(departureDate);
+      newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      setDepartureDate(newDate);
+      setTempDate(newDate);
+      // Update dateISO to trigger canSubmit validation
+      const year = newDate.getFullYear();
+      const month = String(newDate.getMonth() + 1).padStart(2, '0');
+      const day = String(newDate.getDate()).padStart(2, '0');
+      setDateISO(`${year}-${month}-${day}`);
+    }
+  };
 
-  const onPickTime = (h: number, m: number) => {
-    const h2 = String(h).padStart(2, '0');
-    const m2 = String(m).padStart(2, '0');
-    setTimeISO(`${h2}:${m2}`);
-    setShowTime(false);
+  const handleTimeChange = (_: any, selectedTime?: Date) => {
+    // Only update temp date during picker interaction
+    if (selectedTime) {
+      setTempDate(selectedTime);
+    }
+  };
+  
+  const handleTimeConfirm = () => {
+    // Validate the selected time
+    const now = new Date();
+    if (tempDate <= now) {
+      Alert.alert(
+        'Invalid Time', 
+        'Please select a time in the future.',
+        [
+          {
+            text: 'OK',
+            onPress: resetToCurrentTime
+          }
+        ]
+      );
+      setShowTimePicker(false);
+      return;
+    }
+    
+    // Apply the time to the departure date
+    const newDate = new Date(departureDate);
+    newDate.setHours(tempDate.getHours(), tempDate.getMinutes(), 0, 0);
+    setDepartureDate(newDate);
+    setShowTimePicker(false);
+  };
+  
+  const handleTimeCancel = () => {
+    // Reset temp date to current departure date
+    setTempDate(departureDate);
+    setShowTimePicker(false);
+  };
+
+  const handleCalendarConfirm = (iso: string) => {
+    setDateISO(iso);
+    const [y, m, d] = iso.split('-').map(Number);
+    const newDate = new Date(departureDate);
+    newDate.setFullYear(y, m - 1, d);
+    setDepartureDate(newDate);
+    setShowCalendar(false);
   };
 
   const handleSubmit = async () => {
@@ -84,8 +160,8 @@ export default function OfferRide() {
         startLocation: pickupText,
         endLocation: dropoffText,
         departureTime: departureISO,
-        availableSeats: 1,            // default; you can add a seat input later
-        pricePerSeat: 5,              // default; add a price input later
+        availableSeats: Number(availableSeats),
+        pricePerSeat: Number(pricePerSeat),
         startLat: pickup.lat,
         startLng: pickup.lng,
         endLat: dropoff.lat,
@@ -198,17 +274,57 @@ export default function OfferRide() {
           />
         </View>
 
-        {/* Date / Time */}
-        <Text style={[styles.label, { marginTop: 10 }]}>Date</Text>
-        <TouchableOpacity style={styles.fakeInput} onPress={() => setShowDate(true)}>
-          <Text style={[styles.fakeInputText, !dateISO && styles.placeholder]}>{dateLabel}</Text>
-        </TouchableOpacity>
+        {/* Date & Time Picker */}
+        <DateTimePickerRow
+          date={departureDate}
+          onDatePress={() => setShowCalendar(true)}
+          onTimePress={() => {
+            setTempDate(departureDate);
+            setShowTimePicker(true);
+          }}
+          showDate={false}
+          showTime={showTimePicker}
+          onChangeDate={handleDateChange}
+          onChangeTime={handleTimeChange}
+          tempDate={tempDate}
+          onTimeConfirm={handleTimeConfirm}
+          onTimeCancel={handleTimeCancel}
+        />
 
-        <Text style={[styles.label, { marginTop: 10 }]}>Time</Text>
-        <TouchableOpacity style={styles.fakeInput} onPress={openTimePicker}>
-          <Text style={[styles.fakeInputText, !timeISO && styles.placeholder]}>{timeLabel}</Text>
-        </TouchableOpacity>
+        {/* Available Seats */}
+        <Text style={[styles.label, { marginTop: 10 }]}>Available seats</Text>
+        <View style={styles.fakeInput}>
+          <TextInput
+            style={styles.textInput}
+            value={availableSeats}
+            onChangeText={setAvailableSeats}
+            placeholder="Number of seats"
+            keyboardType="numeric"
+            maxLength={1}
+          />
+        </View>
 
+        {/* Price per Seat */}
+        <Text style={[styles.label, { marginTop: 10 }]}>Price per seat ($)</Text>
+        <View style={styles.fakeInput}>
+          <TextInput
+            style={styles.textInput}
+            value={pricePerSeat}
+            onChangeText={setPricePerSeat}
+            placeholder="Price in dollars"
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Date/Time Validation Warning */}
+        {dateISO && !isDateTimeInFuture() && (
+          <View style={styles.warningContainer}>
+            <Text style={styles.warningText}>
+              ⚠️ Please select a future date and time to offer your ride.
+            </Text>
+          </View>
+        )}
+        
         {/* CTA */}
         <TouchableOpacity
           style={[styles.cta, (!canSubmit || submitting) && { opacity: 0.5 }]}
@@ -219,42 +335,14 @@ export default function OfferRide() {
         </TouchableOpacity>
       </View>
 
-      {/* Date modal */}
+      {/* Calendar modal */}
       <CalendarModal
-        visible={showDate}
+        visible={showCalendar}
         initialDate={dateISO || undefined}
-        onClose={() => setShowDate(false)}
-        onConfirm={(iso) => {
-          setDateISO(iso);
-          setShowDate(false);
-        }}
+        onClose={() => setShowCalendar(false)}
+        onConfirm={handleCalendarConfirm}
       />
 
-      {/* Time picker (very light custom) */}
-      {showTime && (
-        <View style={styles.timeOverlay}>
-          <View style={styles.timeSheet}>
-            <Text style={styles.timeTitle}>Select time</Text>
-            <View style={styles.timeRow}>
-              {['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'].map(t => (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.timeChip, timeISO === t && styles.timeChipActive]}
-                  onPress={() => onPickTime(Number(t.split(':')[0]), Number(t.split(':')[1]))}
-                >
-                  <Text style={[styles.timeChipText, timeISO === t && styles.timeChipTextActive]}>
-                    {new Date(0,0,0,Number(t.split(':')[0]),Number(t.split(':')[1]))
-                      .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity style={styles.timeCancel} onPress={() => setShowTime(false)}>
-              <Text style={styles.timeCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -312,6 +400,11 @@ const styles = StyleSheet.create({
   },
   fakeInputText: { color: '#111827' },
   placeholder: { color: '#9CA3AF' },
+  textInput: {
+    color: '#111827',
+    fontSize: 16,
+    padding: 0,
+  },
 
   cta: {
     marginTop: 14,
@@ -322,31 +415,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-
-  // time modal
-  timeOverlay: {
-    position: 'absolute',
-    left: 0, right: 0, top: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5,
+  
+  warningContainer: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
   },
-  timeSheet: {
-    width: '86%',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
+  warningText: {
+    color: '#92400E',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  timeTitle: { fontWeight: '700', color: '#111827', marginBottom: 10 },
-  timeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  timeChip: {
-    paddingVertical: 8, paddingHorizontal: 12,
-    borderRadius: 10, backgroundColor: '#F3F4F6',
-  },
-  timeChipActive: { backgroundColor: '#EDE9FE' },
-  timeChipText: { color: '#111827', fontWeight: '600' },
-  timeChipTextActive: { color: '#5B21B6' },
-  timeCancel: { marginTop: 12, alignSelf: 'flex-end' },
-  timeCancelText: { color: '#6B7280', fontWeight: '600' },
 });
