@@ -92,6 +92,7 @@ export default function SearchRides() {
   };
 
   const [enhancedRides, setEnhancedRides] = useState<EnhancedSearchRide[]>([]);
+  const [sortedRides, setSortedRides] = useState<EnhancedSearchRide[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [useAdvancedSearch, setUseAdvancedSearch] = useState(true);
@@ -104,6 +105,15 @@ export default function SearchRides() {
   const [showRecents, setShowRecents] = useState(true);
   const [justCompletedSearch, setJustCompletedSearch] = useState(false);
   const [lastSearchTexts, setLastSearchTexts] = useState<{from: string, to: string}>({from: '', to: ''});
+  const [sortBy, setSortBy] = useState<'price' | 'dropoff_distance' | 'pickup_distance' | 'departure_time'>('departure_time');
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+
+  const sortOptions = [
+    { value: 'departure_time', label: 'Soonest Ride', icon: 'time' },
+    { value: 'price', label: 'Lowest Price', icon: 'cash' },
+    { value: 'pickup_distance', label: 'Closest Pick-up', icon: 'location' },
+    { value: 'dropoff_distance', label: 'Closest Drop-off', icon: 'flag' },
+  ] as const;
 
   // Load recents on mount (user-specific)
   useEffect(() => {
@@ -121,27 +131,60 @@ export default function SearchRides() {
     setRecents([]); // Clear current recents state when user changes
   }, [user?.id]);
 
-  // Refresh search results when returning to this screen (after making requests)
+  const sortRides = useCallback((rides: EnhancedSearchRide[], sortType: typeof sortBy) => {
+    return [...rides].sort((a, b) => {
+      switch (sortType) {
+        case 'price':
+          return a.price_per_seat - b.price_per_seat;
 
+        case 'pickup_distance':
+          // Sort by distance from pickup location (if available)
+          const aPickupDist = a.distance_km || 0;
+          const bPickupDist = b.distance_km || 0;
+          return aPickupDist - bPickupDist;
 
+        case 'dropoff_distance':
+          // For dropoff distance, we'd need to calculate distance to dropoff point
+          // For now, use the same distance field as pickup (this can be enhanced later)
+          const aDropoffDist = a.distance_km || 0;
+          const bDropoffDist = b.distance_km || 0;
+          return aDropoffDist - bDropoffDist;
+
+        case 'departure_time':
+        default:
+          // Sort by departure time (soonest first)
+          const aTime = new Date(a.departure_time).getTime();
+          const bTime = new Date(b.departure_time).getTime();
+          return aTime - bTime;
+      }
+    });
+  }, []);
+
+  // Sort rides when sortBy changes or enhancedRides updates
+  useEffect(() => {
+    if (enhancedRides.length > 0) {
+      const sorted = sortRides(enhancedRides, sortBy);
+      setSortedRides(sorted);
+    }
+  }, [enhancedRides, sortBy, sortRides]);
 
   const sortRidesByDateRelevance = useCallback((rides: EnhancedSearchRide[], searchDate: string) => {
     const searchDateTime = new Date(searchDate + 'T00:00:00').getTime();
     const searchDateOnly = new Date(searchDate).toDateString();
-    
+
     return rides.sort((a, b) => {
       const aTime = new Date(a.departure_time).getTime();
       const bTime = new Date(b.departure_time).getTime();
       const aDateOnly = new Date(a.departure_time).toDateString();
       const bDateOnly = new Date(b.departure_time).toDateString();
-      
+
       // Priority 1: Rides on the selected date come first
       const aIsOnSelectedDate = aDateOnly === searchDateOnly;
       const bIsOnSelectedDate = bDateOnly === searchDateOnly;
-      
+
       if (aIsOnSelectedDate && !bIsOnSelectedDate) return -1;
       if (!aIsOnSelectedDate && bIsOnSelectedDate) return 1;
-      
+
       // Priority 2: If both are on selected date OR both are not, sort by closest time to selected date
       if (aIsOnSelectedDate && bIsOnSelectedDate) {
         // Both on selected date - sort by departure time (earlier first)
@@ -150,11 +193,11 @@ export default function SearchRides() {
         // Neither on selected date - sort by closest to selected date
         const aDiff = Math.abs(aTime - searchDateTime);
         const bDiff = Math.abs(bTime - searchDateTime);
-        
+
         if (aDiff !== bDiff) {
           return aDiff - bDiff;
         }
-        
+
         // If same distance from search date, sort by departure time (earlier first)
         return aTime - bTime;
       }
@@ -461,8 +504,71 @@ export default function SearchRides() {
             )}
           </View>
 
+          {/* Sort Dropdown */}
+          <View style={styles.sortContainer}>
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => setShowSortDropdown(!showSortDropdown)}
+            >
+              <Ionicons
+                name={sortOptions.find(opt => opt.value === sortBy)?.icon as any}
+                size={16}
+                color="#7C3AED"
+              />
+              <Text style={styles.sortButtonText}>
+                {sortOptions.find(opt => opt.value === sortBy)?.label}
+              </Text>
+              <Ionicons
+                name={showSortDropdown ? "chevron-up" : "chevron-down"}
+                size={16}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
+
+            {showSortDropdown && (
+              <>
+                <TouchableOpacity
+                  style={styles.sortOverlay}
+                  onPress={() => setShowSortDropdown(false)}
+                  activeOpacity={1}
+                />
+                <View style={styles.sortDropdown}>
+                  {sortOptions.map((option, index) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.sortOption,
+                        sortBy === option.value && styles.sortOptionActive,
+                        index === sortOptions.length - 1 && styles.sortOptionLast
+                      ]}
+                      onPress={() => {
+                        setSortBy(option.value);
+                        setShowSortDropdown(false);
+                      }}
+                    >
+                      <Ionicons
+                        name={option.icon as any}
+                        size={16}
+                        color={sortBy === option.value ? "#7C3AED" : "#6B7280"}
+                      />
+                      <Text style={[
+                        styles.sortOptionText,
+                        sortBy === option.value && styles.sortOptionTextActive
+                      ]}>
+                        {option.label}
+                      </Text>
+                      {sortBy === option.value && (
+                        <Ionicons name="checkmark" size={16} color="#7C3AED" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+
           <FlatList
-            data={enhancedRides}
+            data={sortedRides.length > 0 ? sortedRides : enhancedRides}
             keyExtractor={r => r.ride_id}
             renderItem={({ item }) => (
               <EnhancedRideCard
@@ -697,16 +803,88 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  empty: { 
-    flex: 1, 
-    alignItems: 'center', 
+  empty: {
+    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
-  emptyText: { 
-    color: '#6B7280', 
+  emptyText: {
+    color: '#6B7280',
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
+  },
+
+  // Sort Dropdown Styles
+  sortContainer: {
+    marginBottom: 12,
+    position: 'relative',
+    zIndex: 1000,
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 8,
+  },
+  sortButtonText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  sortDropdown: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1001,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  sortOptionActive: {
+    backgroundColor: '#F3E8FF',
+  },
+  sortOptionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#374151',
+  },
+  sortOptionTextActive: {
+    color: '#7C3AED',
+    fontWeight: '500',
+  },
+  sortOptionLast: {
+    borderBottomWidth: 0,
+  },
+  sortOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
   },
 });

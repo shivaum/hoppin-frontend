@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Image,
   Animated, PanResponder, ScrollView, Dimensions, Alert, TextInput
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../navigation/types';
 import type { DriverRideRequest } from '../types';
@@ -104,7 +104,24 @@ export default function EditRide() {
     setError(null);
     try {
       const freshRideData = await getRideDetails(params.rideId);
+      
+      // Update requests
       setLocalRequests(freshRideData.requests || []);
+      
+      // Update form fields with fresh ride data
+      if (freshRideData) {
+        setPickup(freshRideData.start_location || '');
+        setDropoff(freshRideData.end_location || '');
+        setAvailableSeats(String(freshRideData.available_seats || 1));
+        setPricePerSeat(String(freshRideData.price_per_seat || 5));
+
+        if (freshRideData.departure_time) {
+          const departureTime = parseAsLocalTime(freshRideData.departure_time);
+          setDepartureDate(departureTime);
+          setTempDate(departureTime);
+          setDepartureISO(freshRideData.departure_time);
+        }
+      }
     } catch (error: any) {
       console.error('Failed to fetch ride details:', error);
       setError(error.message || 'Failed to load ride details');
@@ -113,10 +130,17 @@ export default function EditRide() {
     }
   };
 
-  // Fetch fresh ride data on mount
+  // Fetch fresh ride data on mount and when screen comes into focus
   useEffect(() => {
     fetchRideData();
   }, [params.rideId]);
+  
+  // Also refresh when screen comes into focus (e.g., returning from another screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchRideData();
+    }, [params.rideId])
+  );
 
   const start = useMemo(() => {
     if (params.start_lat && params.start_lng)
@@ -433,11 +457,11 @@ export default function EditRide() {
       {/* Draggable sheet */}
       <Animated.View style={[styles.sheet, { height: sheetH }]} {...pan.panHandlers}>
         <View style={styles.handle} />
-        <ScrollView 
-          contentContainerStyle={styles.sheetContent} 
+        <ScrollView
+          style={styles.sheetContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled={true}
+          bounces={false}
+          overScrollMode="never"
         >
           <Text style={styles.sheetTitle}>Edit ride</Text>
 
@@ -525,14 +549,23 @@ export default function EditRide() {
             </View>
           )}
 
-          {/* Ride requests */}
+          {/* Date/Time Validation Warning */}
+          {!isDateTimeInFuture() && (
+            <View style={styles.warningContainer}>
+              <Text style={styles.warningText}>
+                ⚠️ Please select a future date and time for your ride.
+              </Text>
+            </View>
+          )}
+
+          {/* Ride requests section */}
           {!isLoading && visibleRequests.length > 0 && (
-            <>
+            <View style={styles.requestsSection}>
               <Text style={[styles.label, { marginTop: 16 }]}>Ride Requests</Text>
               {visibleRequests.map((r) => {
-                const isPending = r.status === 'pending' || !r.status; // Show buttons for pending or undefined status
+                const isPending = r.status === 'pending' || !r.status;
                 const isProcessing = processingRequests.has(r.id);
-                
+
                 return (
                   <View key={r.id} style={styles.riderRow}>
                     {r.rider.photo ? (
@@ -557,7 +590,6 @@ export default function EditRide() {
                           {r.status === 'accepted' ? 'Confirmed' : 'Pending'}
                         </Text>
                       </View>
-                      {/* Timestamp */}
                       <Text style={styles.timestampText}>
                         {getTimestampLabel(r.status)}: {formatTimestamp(getRelevantTimestamp(r))}
                       </Text>
@@ -569,10 +601,10 @@ export default function EditRide() {
                           onPress={() => handleAcceptRequest(r.id)}
                           disabled={isProcessing}
                         >
-                          <Ionicons 
-                            name={isProcessing ? "time-outline" : "checkmark"} 
-                            size={16} 
-                            color="#fff" 
+                          <Ionicons
+                            name={isProcessing ? "time-outline" : "checkmark"}
+                            size={16}
+                            color="#fff"
                           />
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -580,10 +612,10 @@ export default function EditRide() {
                           onPress={() => handleDeclineRequest(r.id)}
                           disabled={isProcessing}
                         >
-                          <Ionicons 
-                            name={isProcessing ? "time-outline" : "close"} 
-                            size={16} 
-                            color="#fff" 
+                          <Ionicons
+                            name={isProcessing ? "time-outline" : "close"}
+                            size={16}
+                            color="#fff"
                           />
                         </TouchableOpacity>
                       </View>
@@ -591,32 +623,23 @@ export default function EditRide() {
                   </View>
                 );
               })}
-            </>
-          )}
-
-          {/* Date/Time Validation Warning */}
-          {!isDateTimeInFuture() && (
-            <View style={styles.warningContainer}>
-              <Text style={styles.warningText}>
-                ⚠️ Please select a future date and time for your ride.
-              </Text>
             </View>
           )}
-          
+
           {/* Action buttons */}
           <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={styles.cancelBtn} 
+            <TouchableOpacity
+              style={styles.cancelBtn}
               onPress={handleCancel}
             >
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[
-                styles.saveBtn, 
+                styles.saveBtn,
                 (!hasChanges() || isSaving || !isDateTimeInFuture()) && styles.saveBtnDisabled
-              ]} 
+              ]}
               onPress={saveChanges}
               disabled={!hasChanges() || isSaving || !isDateTimeInFuture()}
             >
@@ -661,7 +684,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   handle: { alignSelf: 'center', width: 72, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', marginVertical: 8 },
-  sheetContent: { paddingHorizontal: 16, paddingBottom: 24 },
+  sheetContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    overflow: 'hidden' // Prevent content from overflowing sheet bounds
+  },
 
   sheetTitle: { fontSize: 22, fontWeight: '800', color: '#111827', marginBottom: 12 },
 
@@ -783,5 +811,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  
+  requestsSection: {
+    marginTop: 8,
   },
 });

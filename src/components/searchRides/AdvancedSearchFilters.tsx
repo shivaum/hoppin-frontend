@@ -8,16 +8,22 @@ import {
   Modal,
   ScrollView,
   TextInput,
-  Switch,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
-import type { AdvancedSearchParams } from '../../types';
+
+interface FilterParams {
+  pickup_distance: number;
+  dropoff_distance: number;
+  max_price: number;
+  min_seats: number;
+}
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onApply: (filters: Partial<AdvancedSearchParams>) => void;
-  initialFilters?: Partial<AdvancedSearchParams>;
+  onApply: (filters: Partial<FilterParams>) => void;
+  initialFilters?: Partial<FilterParams>;
 }
 
 export default function AdvancedSearchFilters({
@@ -26,20 +32,13 @@ export default function AdvancedSearchFilters({
   onApply,
   initialFilters = {},
 }: Props) {
-  const [filters, setFilters] = useState<Partial<AdvancedSearchParams>>({
-    max_distance: 25,
+  const [filters, setFilters] = useState<Partial<FilterParams>>({
+    pickup_distance: 25,
+    dropoff_distance: 25,
+    max_price: 50,
     min_seats: 1,
-    sort_by: 'relevance',
-    resolve_aliases: true,
     ...initialFilters,
   });
-
-  const sortOptions = [
-    { value: 'relevance', label: 'Best Match', icon: 'star' },
-    { value: 'price', label: 'Lowest Price', icon: 'cash' },
-    { value: 'distance', label: 'Closest First', icon: 'location' },
-    { value: 'departure_time', label: 'Departure Time', icon: 'time' },
-  ];
 
   const handleApply = () => {
     onApply(filters);
@@ -48,16 +47,16 @@ export default function AdvancedSearchFilters({
 
   const handleReset = () => {
     setFilters({
-      max_distance: 25,
+      pickup_distance: 25,
+      dropoff_distance: 25,
+      max_price: 50,
       min_seats: 1,
-      sort_by: 'relevance',
-      resolve_aliases: true,
     });
   };
 
-  const updateFilter = <K extends keyof AdvancedSearchParams>(
+  const updateFilter = <K extends keyof FilterParams>(
     key: K,
-    value: AdvancedSearchParams[K]
+    value: FilterParams[K]
   ) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
@@ -84,44 +83,122 @@ export default function AdvancedSearchFilters({
         </View>
 
         <ScrollView style={s.content} showsVerticalScrollIndicator={false}>
-          {/* Distance Filter */}
+          {/* Pickup Distance Filter */}
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Search Distance</Text>
+            <Text style={s.sectionTitle}>Pickup Distance</Text>
             <Text style={s.sectionSubtitle}>
-              Find rides within {filters.max_distance} miles
+              Find rides within {filters.pickup_distance} miles of pickup location
             </Text>
-            
+
             <View style={s.sliderContainer}>
-              <View style={s.customSlider}>
-                <View style={s.sliderTrack}>
-                  <View 
-                    style={[
-                      s.sliderProgress, 
-                      { 
-                        width: `${((filters.max_distance || 25) - 0) / (25 - 0) * 100}%` 
+              <Slider
+                style={s.slider}
+                minimumValue={0}
+                maximumValue={100}
+                value={filters.pickup_distance || 25}
+                onValueChange={(value) => updateFilter('pickup_distance', Math.round(value))}
+                minimumTrackTintColor="#7C3AED"
+                maximumTrackTintColor="#E5E7EB"
+                thumbTintColor="#7C3AED"
+              />
+              <View style={s.sliderRow}>
+                <Text style={s.sliderLabel}>0 mi</Text>
+                <View style={s.textInputContainer}>
+                  <TextInput
+                    style={s.textInput}
+                    value={String(filters.pickup_distance || 25)}
+                    onChangeText={(text) => {
+                      const value = parseInt(text) || 0;
+                      if (value >= 0 && value <= 100) {
+                        updateFilter('pickup_distance', value);
                       }
-                    ]} 
+                    }}
+                    keyboardType="numeric"
+                    maxLength={3}
+                  />
+                  <Text style={s.textInputSuffix}>mi</Text>
+                </View>
+                <Text style={s.sliderLabel}>100 mi</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Dropoff Distance Filter */}
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Dropoff Distance</Text>
+            <Text style={s.sectionSubtitle}>
+              Find rides within {filters.dropoff_distance} miles of dropoff location
+            </Text>
+
+            <View style={s.sliderContainer}>
+              <Slider
+                style={s.slider}
+                minimumValue={0}
+                maximumValue={100}
+                value={filters.dropoff_distance || 25}
+                onValueChange={(value) => updateFilter('dropoff_distance', Math.round(value))}
+                minimumTrackTintColor="#7C3AED"
+                maximumTrackTintColor="#E5E7EB"
+                thumbTintColor="#7C3AED"
+              />
+              <View style={s.sliderRow}>
+                <Text style={s.sliderLabel}>0 mi</Text>
+                <View style={s.textInputContainer}>
+                  <TextInput
+                    style={s.textInput}
+                    value={String(filters.dropoff_distance || 25)}
+                    onChangeText={(text) => {
+                      const value = parseInt(text) || 0;
+                      if (value >= 0 && value <= 100) {
+                        updateFilter('dropoff_distance', value);
+                      }
+                    }}
+                    keyboardType="numeric"
+                    maxLength={3}
+                  />
+                  <Text style={s.textInputSuffix}>mi</Text>
+                </View>
+                <Text style={s.sliderLabel}>100 mi</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Max Price Filter */}
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Maximum Price</Text>
+            <Text style={s.sectionSubtitle}>
+              Show rides up to ${filters.max_price} per seat
+            </Text>
+
+            <View style={s.sliderContainer}>
+              <Slider
+                style={s.slider}
+                minimumValue={5}
+                maximumValue={100}
+                value={filters.max_price || 50}
+                onValueChange={(value) => updateFilter('max_price', Math.round(value))}
+                minimumTrackTintColor="#7C3AED"
+                maximumTrackTintColor="#E5E7EB"
+                thumbTintColor="#7C3AED"
+              />
+              <View style={s.sliderRow}>
+                <Text style={s.sliderLabel}>$5</Text>
+                <View style={s.textInputContainer}>
+                  <Text style={s.textInputPrefix}>$</Text>
+                  <TextInput
+                    style={s.textInput}
+                    value={String(filters.max_price || 50)}
+                    onChangeText={(text) => {
+                      const value = parseInt(text) || 5;
+                      if (value >= 5 && value <= 100) {
+                        updateFilter('max_price', value);
+                      }
+                    }}
+                    keyboardType="numeric"
+                    maxLength={3}
                   />
                 </View>
-                <View style={s.sliderButtons}>
-                  <TouchableOpacity
-                    style={s.sliderButton}
-                    onPress={() => updateFilter('max_distance', Math.max(0, (filters.max_distance || 25) - 5))}
-                  >
-                    <Ionicons name="remove" size={16} color="#7C3AED" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={s.sliderButton}
-                    onPress={() => updateFilter('max_distance', Math.min(25, (filters.max_distance || 25) + 5))}
-                  >
-                    <Ionicons name="add" size={16} color="#7C3AED" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={s.sliderLabels}>
-                <Text style={s.sliderLabel}>0 mi</Text>
-                <Text style={s.sliderValue}>{filters.max_distance} mi</Text>
-                <Text style={s.sliderLabel}>25 mi</Text>
+                <Text style={s.sliderLabel}>$100</Text>
               </View>
             </View>
           </View>
@@ -149,59 +226,6 @@ export default function AdvancedSearchFilters({
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
-          </View>
-
-          {/* Sort Order */}
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Sort Results By</Text>
-            <View style={s.sortContainer}>
-              {sortOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    s.sortOption,
-                    filters.sort_by === option.value && s.sortOptionActive,
-                  ]}
-                  onPress={() => updateFilter('sort_by', option.value as any)}
-                >
-                  <Ionicons
-                    name={option.icon as any}
-                    size={18}
-                    color={
-                      filters.sort_by === option.value ? '#7C3AED' : '#6B7280'
-                    }
-                  />
-                  <Text
-                    style={[
-                      s.sortOptionText,
-                      filters.sort_by === option.value && s.sortOptionTextActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Smart Features */}
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Smart Search Features</Text>
-            
-            <View style={s.toggleRow}>
-              <View style={s.toggleInfo}>
-                <Text style={s.toggleTitle}>Location Intelligence</Text>
-                <Text style={s.toggleSubtitle}>
-                  Resolve aliases and get smart suggestions
-                </Text>
-              </View>
-              <Switch
-                value={filters.resolve_aliases}
-                onValueChange={(value) => updateFilter('resolve_aliases', value)}
-                trackColor={{ false: '#E5E7EB', true: '#C084FC' }}
-                thumbColor={filters.resolve_aliases ? '#7C3AED' : '#9CA3AF'}
-              />
             </View>
           </View>
         </ScrollView>
@@ -279,61 +303,63 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Distance Slider
+  // Slider Styles
   sliderContainer: {
     paddingHorizontal: 4,
-  },
-
-  customSlider: {
     marginVertical: 8,
   },
 
-  sliderTrack: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    marginBottom: 12,
+  slider: {
+    width: '100%',
+    height: 40,
   },
 
-  sliderProgress: {
-    height: '100%',
-    backgroundColor: '#7C3AED',
-    borderRadius: 2,
-  },
 
-  sliderButtons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-  },
-
-  sliderButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3E8FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#C084FC',
-  },
-
-  sliderLabels: {
+  sliderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: -8,
+    marginTop: 8,
   },
 
   sliderLabel: {
     fontSize: 12,
     color: '#9CA3AF',
+    fontWeight: '500',
   },
 
-  sliderValue: {
+  textInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+
+  textInput: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#7C3AED',
+    color: '#111827',
+    textAlign: 'center',
+    minWidth: 32,
+    padding: 0,
+  },
+
+  textInputPrefix: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginRight: 2,
+  },
+
+  textInputSuffix: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginLeft: 4,
   },
 
 
@@ -369,63 +395,6 @@ const s = StyleSheet.create({
     color: '#7C3AED',
   },
 
-  // Sort Options
-  sortContainer: {
-    gap: 8,
-  },
-
-  sortOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
-    gap: 12,
-  },
-
-  sortOptionActive: {
-    borderColor: '#7C3AED',
-    backgroundColor: '#F3E8FF',
-  },
-
-  sortOptionText: {
-    fontSize: 15,
-    color: '#374151',
-    fontWeight: '500',
-  },
-
-  sortOptionTextActive: {
-    color: '#7C3AED',
-  },
-
-  // Toggle Rows
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-
-  toggleInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-
-  toggleTitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 2,
-  },
-
-  toggleSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
 
 
   // Footer
