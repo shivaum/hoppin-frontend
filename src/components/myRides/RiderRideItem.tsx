@@ -26,6 +26,7 @@ export default function RiderRideItem({ request: b }: Props) {
     });
   };
 
+
   return (
     <View style={styles.card}>
       {/* Tappable summary */}
@@ -69,12 +70,14 @@ export default function RiderRideItem({ request: b }: Props) {
       </TouchableOpacity>
 
       {/* Actions (not part of the tappable area) */}
-      {b.status === 'accepted' && (
-        <TouchableOpacity style={[styles.btn, styles.btnOutline, { marginTop: 8 }]}>
-          <Ionicons name="chatbubble-ellipses" size={16} color="#111827" />
-          <Text style={styles.btnOutlineTxt}>Message Driver</Text>
-        </TouchableOpacity>
-      )}
+      <View style={styles.actionsContainer}>
+        {(b.status === 'accepted' || b.status === 'pending') && (
+          <TouchableOpacity style={[styles.btn, styles.btnOutline]}>
+            <Ionicons name="chatbubble-ellipses" size={16} color="#111827" />
+            <Text style={styles.btnOutlineTxt}>Message Driver</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -96,7 +99,10 @@ const styles = StyleSheet.create({
   small: { marginTop: 4, color: '#374151', fontSize: 13 },
   bold: { fontWeight: '600' },
 
-  btn: { height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+  actionsContainer: { marginTop: 8, flexDirection: 'row', gap: 8 },
+  btn: { height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, flex: 1 },
   btnOutline: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#D1D5DB' },
   btnOutlineTxt: { color: '#111827', fontWeight: '600' },
+  btnDanger: { backgroundColor: '#EF4444', borderWidth: 1, borderColor: '#DC2626' },
+  btnDangerTxt: { color: '#FFF', fontWeight: '600' },
 });

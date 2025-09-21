@@ -1,8 +1,13 @@
 // src/components/offerRides/LocationInput.tsx
 import 'react-native-get-random-values';
 import React, { forwardRef, useState, useRef, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, LogBox } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+
+// Suppress VirtualizedList warning for this specific component
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested inside plain ScrollViews'
+]);
 
 export type LatLng = { lat: number; lng: number };
 
@@ -48,6 +53,8 @@ export default forwardRef<any, Props>(function LocationInput(
         query={{ key: apiKey, language: 'en' }}
         enablePoweredByContainer={false}
         predefinedPlaces={[]}
+        listViewDisplayed="auto"
+        suppressDefaultStyles
         textInputProps={{
           onChangeText: onChange,
           onFocus: () => {
@@ -70,6 +77,17 @@ export default forwardRef<any, Props>(function LocationInput(
         }}
         onFail={(e) => console.error('Places error:', e)}
         onNotFound={() => {}}
+        renderRow={(data) => (
+          <View style={{
+            padding: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E7EB',
+          }}>
+            <Text style={{ fontSize: 14, color: '#111827' }}>
+              {data.description}
+            </Text>
+          </View>
+        )}
         styles={{
           // remove inner container look entirely
           container: { flex: 0 },
@@ -80,9 +98,9 @@ export default forwardRef<any, Props>(function LocationInput(
             height: 44,
           },
           textInput: styles.input,
-          listView: { 
-            backgroundColor: '#fff', 
-            borderRadius: 12, 
+          listView: {
+            backgroundColor: '#fff',
+            borderRadius: 12,
             marginTop: 4,
             position: 'absolute',
             top: '100%',
@@ -90,13 +108,14 @@ export default forwardRef<any, Props>(function LocationInput(
             right: 0,
             zIndex: 5000,
             elevation: 10,
-            maxHeight: 200,
+            maxHeight: 150,
             borderWidth: 1,
             borderColor: '#E5E7EB',
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.1,
             shadowRadius: 4,
+            overflow: 'hidden',
           },
           row: { paddingVertical: 12, paddingHorizontal: 12 },
           separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB' },

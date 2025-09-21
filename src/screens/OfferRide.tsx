@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
 import Map from '../components/common/map/Map';
-import LocationInput, { LatLng } from '../components/common/inputs/LocationInput';
+import UnifiedLocationInput, { UnifiedLocationInputRef, LatLng } from '../components/common/inputs/UnifiedLocationInput';
 import CalendarModal from '../components/common/modals/CalendarModal';
 import DateTimePickerRow from '../components/common/inputs/DateTimePickerRow';
 import { createRide } from '../integrations/hopin-backend/driver';
@@ -247,8 +247,7 @@ export default function OfferRide() {
         {/* Pick-up */}
         <Text style={styles.label}>Pick up</Text>
         <View style={styles.inputWrap}>
-          <LocationInput
-            ref={null}
+          <UnifiedLocationInput
             apiKey={apiKey}
             value={pickupText}
             onChange={setPickupText}
@@ -262,8 +261,7 @@ export default function OfferRide() {
         {/* Drop-off */}
         <Text style={[styles.label, { marginTop: 10 }]}>Drop off</Text>
         <View style={styles.inputWrap}>
-          <LocationInput
-            ref={null}
+          <UnifiedLocationInput
             apiKey={apiKey}
             value={dropoffText}
             onChange={setDropoffText}

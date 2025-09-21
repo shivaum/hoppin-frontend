@@ -121,6 +121,25 @@ export async function getRideDetails(rideId: string): Promise<{
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to get ride details');
   }
-  
+
+  return res.json();
+}
+
+/**
+ * Cancel a ride request
+ */
+export async function cancelRideRequest(requestId: string): Promise<{ message: string }> {
+  const res = await authorizedFetch(`${API_URL}/rider/cancel_request/${requestId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const err = await safeJson(res);
+    throw new Error(err.error || "Failed to cancel ride request");
+  }
+
   return res.json();
 }

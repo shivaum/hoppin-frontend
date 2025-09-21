@@ -9,7 +9,7 @@ import type { MainStackParamList } from '../navigation/types';
 import type { DriverRideRequest } from '../types';
 import Map from '../components/common/map/Map';
 import { Ionicons } from '@expo/vector-icons';
-import LocationInput from '../components/common/inputs/LocationInput';
+import UnifiedLocationInput, { UnifiedLocationInputRef } from '../components/common/inputs/UnifiedLocationInput';
 import DateTimePickerRow from '../components/common/inputs/DateTimePickerRow';
 import CalendarModal from '../components/common/modals/CalendarModal';
 import Constants from 'expo-constants';
@@ -170,9 +170,9 @@ export default function EditRide() {
     })
   ).current;
 
-  // separate requests by status - show pending and accepted, exclude declined/rejected
-  const visibleRequests = useMemo(() => 
-    localRequests.filter(r => r.rider && r.status !== 'declined' && r.status !== 'rejected'), 
+  // separate requests by status - show pending, accepted, and rejected, exclude only declined
+  const visibleRequests = useMemo(() =>
+    localRequests.filter(r => r.rider && r.status !== 'declined'),
     [localRequests]
   );
 
@@ -253,8 +253,9 @@ export default function EditRide() {
       case 'accepted':
         return 'Accepted';
       case 'declined':
-      case 'rejected':
         return 'Declined';
+      case 'rejected':
+        return 'Rejected';
       default:
         return 'Requested';
     }
@@ -462,12 +463,13 @@ export default function EditRide() {
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
+          nestedScrollEnabled={false}
+          keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.sheetTitle}>Edit ride</Text>
 
           <Text style={styles.label}>Pick up</Text>
-          <LocationInput
-            ref={null}
+          <UnifiedLocationInput
             apiKey={apiKey}
             value={pickup}
             placeholder="Enter pick-up location"
@@ -480,8 +482,7 @@ export default function EditRide() {
           />
 
           <Text style={[styles.label, { marginTop: 12 }]}>Drop off</Text>
-          <LocationInput
-            ref={null}
+          <UnifiedLocationInput
             apiKey={apiKey}
             value={dropoff}
             placeholder="Enter drop-off location"
@@ -585,9 +586,11 @@ export default function EditRide() {
                         )}
                         <Text style={[
                           styles.statusBadge,
-                          r.status === 'accepted' ? styles.acceptedBadge : styles.pendingBadge
+                          r.status === 'accepted' ? styles.acceptedBadge :
+                          r.status === 'rejected' ? styles.rejectedBadge : styles.pendingBadge
                         ]}>
-                          {r.status === 'accepted' ? 'Confirmed' : 'Pending'}
+                          {r.status === 'accepted' ? 'Confirmed' :
+                           r.status === 'rejected' ? 'Rejected' : 'Pending'}
                         </Text>
                       </View>
                       <Text style={styles.timestampText}>
@@ -695,7 +698,6 @@ const styles = StyleSheet.create({
 
   label: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 6 },
 
-  // Use your existing LocationInput; this wrapper just matches mock tone when empty
   fakeInput: {
     height: 48, borderRadius: 12, backgroundColor: '#F3F4F6',
     paddingHorizontal: 14, justifyContent: 'center',
@@ -722,6 +724,7 @@ const styles = StyleSheet.create({
   },
   pendingBadge: { backgroundColor: '#FEF3C7', color: '#92400E' },
   acceptedBadge: { backgroundColor: '#D1FAE5', color: '#065F46' },
+  rejectedBadge: { backgroundColor: '#FEE2E2', color: '#B91C1C' },
   
   actionButtons: { flexDirection: 'row', gap: 8 },
   actionBtn: {

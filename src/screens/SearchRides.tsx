@@ -23,12 +23,14 @@ import AdvancedSearchFilters from '../components/searchRides/AdvancedSearchFilte
 import SubmitButton from '../components/common/buttons/SubmitButton';
 import CalendarModal from '../components/common/modals/CalendarModal';
 import { formatDateShort } from '../utils/dateTime';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 
 const MAX_RECENTS = 4;
 
 export default function SearchRides() {
   const { user } = useAuth();
+  const navigation = useNavigation();
+  const route = useRoute();
   const RECENTS_KEY = `search_recents_v2_${user?.id || 'guest'}`;
   const apiKey = Constants.expoConfig?.extra?.googleMapsApiKey as string;
 
@@ -257,21 +259,22 @@ export default function SearchRides() {
     }
   }, [fromText, toText, fromCoords, toCoords, selectedDate, useAdvancedSearch, advancedFilters, sortRidesByDateRelevance, recents]);
 
-  // Refresh search results when returning to this screen (after making requests)
-  // Temporarily disabled to prevent infinite loop - users can manually refresh if needed
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     // Only refresh if we have existing search results and valid search criteria
-  //     if (hasSearched && fromText.trim() && toText.trim() && totalResults > 0) {
-  //       handleSearch();
-  //     }
-  //   }, [hasSearched, fromText, toText, totalResults])
-  // );
-
   const dateBtnLabel = formatDateShort(selectedDate + 'T00:00:00');
 
   const hasInputs = fromText.trim().length > 0 || toText.trim().length > 0;
   const totalResults = enhancedRides.length;
+
+  // Listen for ride request events to refresh search results
+  useEffect(() => {
+    // Check if we received a refresh flag in route params
+    const refreshAfterRequest = (route.params as any)?.refreshAfterRequest;
+
+    if (refreshAfterRequest && hasSearched && fromText.trim() && toText.trim() && totalResults > 0 && !isSearching) {
+      // Clear the refresh flag and refresh search
+      navigation.setParams({ refreshAfterRequest: undefined } as any);
+      handleSearch();
+    }
+  }, [route.params, hasSearched, fromText, toText, totalResults, isSearching, handleSearch, navigation]);
   const hasActiveFilters = Object.keys(advancedFilters).length > 0;
 
   return (

@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { getMyDriverRides } from '../../integrations/hopin-backend/driver';
 import type { DriverRide, RideRequestItem } from '../../types';
-import { getMyRideRequests } from '../../integrations/hopin-backend/rider';
+import { getMyRideRequests, cancelRideRequest } from '../../integrations/hopin-backend/rider';
 
 export interface RidesState {
   driverRides: DriverRide[];
@@ -24,6 +24,14 @@ export const fetchDriverRides = createAsyncThunk('rides/fetchDriverRides', async
 export const fetchRiderRequests = createAsyncThunk('rides/fetchRiderRequests', async () => {
   return await getMyRideRequests();
 });
+
+export const cancelRiderRequest = createAsyncThunk(
+  'rides/cancelRiderRequest',
+  async (requestId: string) => {
+    await cancelRideRequest(requestId);
+    return requestId;
+  }
+);
 
 const ridesSlice = createSlice({
   name: 'rides',
@@ -64,6 +72,11 @@ const ridesSlice = createSlice({
       .addCase(fetchRiderRequests.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message ?? 'Error loading rider requests';
+      })
+      .addCase(cancelRiderRequest.fulfilled, (state, action) => {
+        state.riderRequests = state.riderRequests.filter((request) =>
+          request.request_id !== action.payload
+        );
       });
   },
 });

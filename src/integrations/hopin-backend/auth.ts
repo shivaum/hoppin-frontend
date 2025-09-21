@@ -44,7 +44,6 @@ export async function signUpWithEmail(
 }
 
 export async function signInWithEmail(email: string, password: string) {
-    console.log('calling');
     const res = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

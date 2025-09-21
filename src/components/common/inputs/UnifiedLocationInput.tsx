@@ -70,8 +70,8 @@ const UnifiedLocationInput = forwardRef<UnifiedLocationInputRef, Props>(
             minLength={2}
             debounce={250}
             GooglePlacesDetailsQuery={{ fields: 'geometry' }}
-            query={{ 
-              key: apiKey, 
+            query={{
+              key: apiKey,
               language: 'en',
               // Include both address and establishment types for comprehensive results
               types: undefined, // Allow all types (addresses, cities, landmarks, etc.)
@@ -109,10 +109,10 @@ const UnifiedLocationInput = forwardRef<UnifiedLocationInputRef, Props>(
               separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB' },
             }}
           />
-          
+
           {value.length > 0 && (
-            <TouchableOpacity 
-              style={styles.clearButton} 
+            <TouchableOpacity
+              style={styles.clearButton}
               onPress={() => {
                 googlePlacesRef.current?.setAddressText('');
                 googlePlacesRef.current?.clear();
