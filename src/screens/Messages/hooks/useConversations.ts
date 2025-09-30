@@ -1,6 +1,6 @@
 // src/screens/Messages/hooks/useConversations.ts
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { MessageConversation } from '../../../components/messages/MessageListItem';
+import type { MessageConversation } from '../components/MessageListItem';
 import { conversationService } from '../services/conversationService';
 
 type FilterType = 'driver' | 'rider';

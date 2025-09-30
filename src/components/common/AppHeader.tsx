@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotificationContext } from '../../contexts/NotificationContext';
-import NotificationBadge from '../notifications/NotificationBadge';
-import NotificationsModal from '../notifications/NotificationsModal';
+import NotificationBadge from './notifications/NotificationBadge';
+import NotificationsModal from './notifications/NotificationsModal';
 import { colors } from '../../constants/colors';
 
 interface AppHeaderProps {

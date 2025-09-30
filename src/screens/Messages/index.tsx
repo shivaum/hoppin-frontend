@@ -3,7 +3,7 @@ import React from 'react';
 import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { MessageConversation } from '../../components/messages/MessageListItem';
+import type { MessageConversation } from './components/MessageListItem';
 import { colors } from '../../constants/colors';
 import type { MainStackParamList } from '../../navigation/types';
 

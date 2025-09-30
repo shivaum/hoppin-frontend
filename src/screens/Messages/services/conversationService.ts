@@ -1,6 +1,6 @@
 // src/screens/Messages/services/conversationService.ts
 import { fetchUserConversations as apiFetchUserConversations } from '../../../integrations/hopin-backend/messaging';
-import type { MessageConversation, MessageStatus } from '../../../components/messages/MessageListItem';
+import type { MessageConversation, MessageStatus } from '../components/MessageListItem';
 
 /**
  * Service layer for Messages screen

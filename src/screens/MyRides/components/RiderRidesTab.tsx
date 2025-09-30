@@ -2,7 +2,7 @@
 import React from 'react';
 import { FlatList, View, Text, RefreshControl, StyleSheet } from 'react-native';
 import type { RideRequestItem } from '../../../types';
-import RiderRideItem from '../../../components/myRides/RiderRideItem';
+import RiderRideItem from './RiderRideItem';
 
 interface RiderRidesTabProps {
   requests: RideRequestItem[];

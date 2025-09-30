@@ -9,7 +9,7 @@ import MyRides from '../screens/MyRides';
 import Messages from '../screens/Messages';
 import UserProfile from '../screens/UserProfile';
 import { useNotificationContext } from '../contexts/NotificationContext';
-import NotificationBadge from '../components/notifications/NotificationBadge';
+import NotificationBadge from '../components/common/notifications/NotificationBadge';
 import AppHeader from '../components/common/AppHeader';
 
 const Tab = createBottomTabNavigator();

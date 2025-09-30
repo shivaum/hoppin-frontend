@@ -2,7 +2,7 @@
 import React from 'react';
 import { FlatList, View, Text, RefreshControl, StyleSheet } from 'react-native';
 import type { DriverRide } from '../../../types';
-import DriverRideItem from '../../../components/myRides/DriverRideItem';
+import DriverRideItem from './DriverRideItem';
 
 interface DriverRidesTabProps {
   rides: DriverRide[];

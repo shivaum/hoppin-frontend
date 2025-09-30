@@ -16,7 +16,7 @@ import Toast from 'react-native-toast-message';
 import { useDispatch } from 'react-redux';
 
 import { useAuth } from '../contexts/AuthContext';
-import ChatWindow from '../components/messages/ChatWindow';
+import ChatWindow from './Messages/components/ChatWindow';
 import { useSocket } from '../hooks/useSocket';
 import { useConversationSocket } from '../hooks/useConversationSocket';
 import { loadMessages, appendMessage } from '../state/chat/chatSlice';
@@ -24,7 +24,7 @@ import { fetchMessagesWith } from '../integrations/hopin-backend/messaging';
 import { sendMessage } from '../integrations/hopin-backend/sendMessage';
 import { colors } from '../constants/colors';
 import { MainStackParamList } from '../navigation/types';
-import { MessageConversation } from '../components/messages/MessageListItem';
+import { MessageConversation } from './Messages/components/MessageListItem';
 import { Message, Conversation } from '../types';
 
 type ChatNavProp = NativeStackNavigationProp<MainStackParamList>;

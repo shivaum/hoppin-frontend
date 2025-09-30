@@ -1,7 +1,7 @@
 // src/screens/Messages/components/ConversationList.tsx
 import React from 'react';
 import { FlatList, View, Text, StyleSheet } from 'react-native';
-import MessageListItem, { MessageConversation } from '../../../components/messages/MessageListItem';
+import MessageListItem, { MessageConversation } from './MessageListItem';
 import { colors } from '../../../constants/colors';
 
 interface ConversationListProps {

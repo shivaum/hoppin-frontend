@@ -5,11 +5,11 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { useAuth } from "../contexts/AuthContext";
-import ProfileHeader from "../components/profile/ProfileHeader";
-import ProfileStats from "../components/profile/ProfileStats";
-import ProfileMenuList from "../components/profile/ProfileMenuList";
-import BecomeDriverButton from "../components/profile/BecomeDriverButton";
-import EditAccountModal, { EditAccountData } from "../components/profile/EditAccountModal";
+import ProfileHeader from "./UserProfile/components/ProfileHeader";
+import ProfileStats from "./UserProfile/components/ProfileStats";
+import ProfileMenuList from "./UserProfile/components/ProfileMenuList";
+import BecomeDriverButton from "./UserProfile/components/BecomeDriverButton";
+import EditAccountModal, { EditAccountData } from "./UserProfile/components/EditAccountModal";
 import { getPublicProfile } from "../integrations/hopin-backend/profile";
 import { colors } from "../constants/colors";
 import { MainStackParamList } from "../navigation/types";

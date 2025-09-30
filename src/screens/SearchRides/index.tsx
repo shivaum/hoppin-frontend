@@ -4,7 +4,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView, Activit
 import Constants from 'expo-constants';
 import { useAuth } from '../../contexts/AuthContext';
 import CalendarModal from '../../components/common/modals/CalendarModal';
-import AdvancedSearchFilters from '../../components/searchRides/AdvancedSearchFilters';
+import AdvancedSearchFilters from './components/AdvancedSearchFilters';
 import SubmitButton from '../../components/common/buttons/SubmitButton';
 
 // Components

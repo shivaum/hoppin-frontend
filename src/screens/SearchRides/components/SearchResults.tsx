@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { EnhancedSearchRide, AdvancedSearchResponse } from '../../../types';
-import EnhancedRideCard from '../../../components/searchRides/EnhancedRideCard';
+import EnhancedRideCard from './EnhancedRideCard';
 
 type SortBy = 'price' | 'dropoff_distance' | 'pickup_distance' | 'departure_time';
 

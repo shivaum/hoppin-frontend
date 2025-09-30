@@ -15,7 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { colors } from '../constants/colors';
 import { MainStackParamList } from '../navigation/types';
-import { uploadLicense } from '../components/profile/DriverVerification/utils';
+import { uploadLicense } from './UserProfile/components/DriverVerification/utils';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/common/indicators/LoadingSpinner';
 
