@@ -10,7 +10,6 @@ import AuthForm from "./screens/AuthForm";
 import Login from "./screens/Login";
 import Signup from "./screens/Signup";
 import Toast from "react-native-toast-message";
-import TabNavigator from "./navigation/TabNavigator";
 import type { RootStackParamList } from "./navigation/types";
 import OnboardingStack from "./navigation/OnboardingStack";
 import MainStack from './navigation/MainStack';

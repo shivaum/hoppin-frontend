@@ -18,7 +18,7 @@ import { CommonActions, useNavigation } from "@react-navigation/native";
 import { RootStackParamList } from "../navigation/types";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { colors } from "../constants/colors";
-import LoadingSpinner from "../components/ui/LoadingSpinner";
+import LoadingSpinner from "../components/common/indicators/LoadingSpinner";
 
 type LoginScreenNavProp = StackNavigationProp<RootStackParamList, "Login">;
 

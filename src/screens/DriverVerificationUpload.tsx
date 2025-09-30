@@ -17,7 +17,7 @@ import { colors } from '../constants/colors';
 import { MainStackParamList } from '../navigation/types';
 import { uploadLicense } from '../components/profile/DriverVerification/utils';
 import { useAuth } from '../contexts/AuthContext';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import LoadingSpinner from '../components/common/indicators/LoadingSpinner';
 
 type DriverVerificationUploadNavProp = NativeStackNavigationProp<
   MainStackParamList,
