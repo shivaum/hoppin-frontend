@@ -1,13 +1,13 @@
 // src/components/myRides/DriverRideItem.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import type { DriverRide } from '../../types';
+import type { DriverRide } from '../../../types';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { MainStackParamList } from '../../navigation/types';
-import { calculateTravelTime } from '../../utils/travelTime';
-import { formatDateShort, formatTime } from '../../utils/dateTime';
+import type { MainStackParamList } from '../../../navigation/types';
+import { calculateTravelTime } from '../../../utils/travelTime';
+import { formatDateShort, formatTime } from '../../../utils/dateTime';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'RideDetails'>;
 

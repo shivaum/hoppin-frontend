@@ -6,7 +6,7 @@ import {
   Dimensions,
 } from 'react-native';
 import NotificationCenter from './NotificationCenter';
-import { useNotificationContext } from '../../contexts/NotificationContext';
+import { useNotificationContext } from '../../../contexts/NotificationContext';
 
 const { height: screenHeight } = Dimensions.get('window');
 

@@ -8,8 +8,8 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../constants/colors';
-import { Notification } from '../../hooks/useNotifications';
+import { colors } from '../../../constants/colors';
+import { Notification } from '../../../hooks/useNotifications';
 
 interface NotificationCenterProps {
   notifications: Notification[];

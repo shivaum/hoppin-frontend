@@ -5,8 +5,8 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { colors } from '../../constants/colors';
-import type { Conversation, Message, User } from "../../types";
+import { colors } from '../../../constants/colors';
+import type { Conversation, Message, User } from "../../../types";
 
 type Props = {
   user: User;
