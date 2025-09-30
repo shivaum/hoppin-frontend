@@ -553,33 +553,10 @@ export default function RideDetails() {
                     ]}
                     onPress={() => {
                       const driverId = rideData?.driver?.id || rideData?.ride?.driver_id;
-                      const conversation = {
-                        id: `${rideId}-${driverId || 'unknown'}`,
-                        otherUser: {
-                          id: driverId || '',
-                          name: driverName,
-                          photo: driverPhoto,
-                        },
-                        ride: {
-                          id: rideId,
-                          departure_time: departureISO,
-                          start_location: startAddress,
-                          end_location: endAddress,
-                          start_lat: startFinal?.latitude,
-                          start_lng: startFinal?.longitude,
-                          end_lat: endFinal?.latitude,
-                          end_lng: endFinal?.longitude,
-                          price_per_seat: pricePerSeat,
-                          available_seats: availableSeats,
-                        },
-                        lastMessage: {
-                          content: 'No messages yet',
-                          created_at: new Date().toISOString(),
-                        },
-                        status: (status === 'accepted' ? 'confirmed' : status === 'pending' ? 'pending' : 'cancelled') as 'confirmed' | 'pending' | 'cancelled',
-                        userRole: 'rider' as 'rider' | 'driver',
-                      };
-                      navigation.navigate('Chat', { conversation });
+                      navigation.navigate('Chat', {
+                        rideId: rideId,
+                        otherUserId: driverId || '',
+                      });
                     }}
                     disabled={myRequestStatus === 'rejected' || myRequestStatus === 'declined'}
                   >

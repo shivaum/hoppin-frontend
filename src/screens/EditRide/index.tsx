@@ -30,21 +30,8 @@ export default function EditRide() {
   // Bottom sheet hook
   const { sheetH, pan } = useBottomSheet();
 
-  // Edit ride hook
+  // Edit ride hook - fetches all data by rideId
   const editRide = useEditRide(params);
-
-  // Map coordinates
-  const start = useMemo(() => {
-    if (params.start_lat && params.start_lng)
-      return { latitude: params.start_lat, longitude: params.start_lng };
-    return undefined;
-  }, [params]);
-
-  const end = useMemo(() => {
-    if (params.end_lat && params.end_lng)
-      return { latitude: params.end_lat, longitude: params.end_lng };
-    return undefined;
-  }, [params]);
 
   const handleSave = async () => {
     const success = await editRide.saveChanges();
@@ -56,10 +43,10 @@ export default function EditRide() {
       {/* Map */}
       <View style={styles.mapWrap}>
         <Map
-          start={start || { latitude: 0, longitude: 0 }}
-          end={end || { latitude: 0, longitude: 0 }}
-          startAddress={editRide.pickup || params.start_address}
-          endAddress={editRide.dropoff || params.end_address}
+          start={{ latitude: 0, longitude: 0 }}
+          end={{ latitude: 0, longitude: 0 }}
+          startAddress={editRide.pickup}
+          endAddress={editRide.dropoff}
         />
       </View>
 

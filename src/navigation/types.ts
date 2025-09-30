@@ -7,60 +7,32 @@ export type RootStackParamList = {
   MainStack: undefined; // contains tabs + RideDetails
 };
 
-// Simplified params for RideDetails - now fetches data via API
+// Strict navigation contracts - screens fetch their own data
+// Only IDs and minimal context should be passed via navigation
+
 export type RideDetailsParams = {
   rideId: string;
   source?: 'search' | 'rider' | 'driver'; // Context of where user navigated from
 };
 
+export type EditRideParams = {
+  rideId: string; // Only ID - screen fetches all data
+};
 
-export type EditRide = {
+export type ChatParams = {
   rideId: string;
-  start_address: string;
-  end_address: string;
-  start_lat?: number;
-  start_lng?: number;
-  end_lat?: number;
-  end_lng?: number;
-  departureISO: string;
-  price_per_seat?: number;
-  available_seats?: number;
-  requests?: Array<{
-    id: string;
-    rider: { name: string; photo?: string; rating?: number };
-  }>;
+  otherUserId: string; // Only IDs - screen fetches conversation metadata
 };
 
 // MainStack that hosts tabs + RideDetails + Driver Verification
 export type MainStackParamList = {
   Tabs: undefined;
   RideDetails: RideDetailsParams;
-  Chat: {
-    conversation: {
-      id: string;
-      otherUser: {
-        id: string;
-        name: string;
-        photo?: string;
-      };
-      ride: {
-        id: string;
-        departure_time: string;
-        start_location: string;
-        end_location: string;
-      };
-      lastMessage: {
-        content: string;
-        created_at: string;
-      };
-      status: 'confirmed' | 'pending' | 'cancelled';
-      userRole: 'driver' | 'rider';
-    };
-  };
+  Chat: ChatParams;
   DriverVerificationRequirements: undefined;
   DriverVerificationUpload: undefined;
   OfferRide: undefined;
-  EditRide: EditRide;
+  EditRide: EditRideParams;
 }
 
 // Bottom tabs

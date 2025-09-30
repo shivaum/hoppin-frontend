@@ -31,7 +31,10 @@ export default function Messages() {
   } = useConversations();
 
   const handleConversationPress = (conversation: MessageConversation) => {
-    navigation.navigate('Chat', { conversation });
+    navigation.navigate('Chat', {
+      rideId: conversation.ride.id,
+      otherUserId: conversation.otherUser.id,
+    });
   };
 
   const handleRideHeaderPress = (conversation: MessageConversation) => {

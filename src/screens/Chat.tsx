@@ -24,22 +24,21 @@ import { fetchMessagesWith } from '../integrations/hopin-backend/messaging';
 import { sendMessage } from '../integrations/hopin-backend/sendMessage';
 import { colors } from '../constants/colors';
 import { MainStackParamList } from '../navigation/types';
-import { MessageConversation } from './Messages/components/MessageListItem';
 import { Message, Conversation } from '../types';
+import { useConversation } from './Chat/hooks/useConversation';
+import LoadingSpinner from '../components/common/indicators/LoadingSpinner';
 
 type ChatNavProp = NativeStackNavigationProp<MainStackParamList>;
-
-type ChatRouteParams = {
-  conversation: MessageConversation;
-};
-
 
 export default function Chat() {
   const { user } = useAuth();
   const navigation = useNavigation<ChatNavProp>();
   const route = useRoute<any>();
   const dispatch = useDispatch<any>();
-  const { conversation } = route.params as ChatRouteParams;
+  const { rideId, otherUserId } = route.params;
+
+  // Fetch conversation metadata using IDs
+  const { conversation, loading: conversationLoading, error: conversationError } = useConversation(rideId, otherUserId);
 
   const socket = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -47,23 +46,27 @@ export default function Chat() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadMessagesFromAPI();
-  }, []);
+    if (conversation) {
+      loadMessagesFromAPI();
+    }
+  }, [conversation]);
 
   const handleReceiveMessage = useCallback((message: Message) => {
     setMessages(prev => [...prev, message]);
   }, []);
 
-  // Set up real-time message listening
+  // Set up real-time message listening (only when conversation loaded)
   useConversationSocket({
     socket,
-    rideId: conversation.ride.id,
+    rideId: conversation?.ride.id || '',
     userId: user?.id || '',
-    otherUserId: conversation.otherUser.id,
+    otherUserId: conversation?.otherUser.id || '',
     onReceive: handleReceiveMessage,
   });
 
   const loadMessagesFromAPI = async () => {
+    if (!conversation) return;
+
     try {
       setLoading(true);
       const messagesData = await fetchMessagesWith(
@@ -84,7 +87,7 @@ export default function Chat() {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !socket) return;
+    if (!newMessage.trim() || !socket || !conversation) return;
 
     try {
       const messageContent = newMessage.trim();
@@ -109,6 +112,7 @@ export default function Chat() {
   };
 
   const handleRideDetailsPress = () => {
+    if (!conversation) return;
     // Navigate to RideDetails using new simplified approach
     navigation.navigate('RideDetails', {
       rideId: conversation.ride.id,
@@ -118,13 +122,36 @@ export default function Chat() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString([], { 
-      month: 'short', 
+    return date.toLocaleDateString([], {
+      month: 'short',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit'
     });
   };
+
+  // Show loading state while fetching conversation
+  if (conversationLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <LoadingSpinner />
+      </View>
+    );
+  }
+
+  // Show error if conversation not found
+  if (conversationError || !conversation) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{conversationError || 'Conversation not found'}</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.errorButton}>
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Transform conversation data for ChatWindow component
   const chatConversation: Conversation = {
@@ -136,27 +163,27 @@ export default function Chat() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.neutral.white} />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.headerContent} onPress={handleRideDetailsPress}>
           <Text style={styles.headerName}>{conversation.otherUser.name}</Text>
           <Text style={styles.headerSubtitle}>
             {formatDate(conversation.ride.departure_time)} | {conversation.ride.start_location} to {conversation.ride.end_location}
           </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.callButton}>
           <Text style={styles.callIcon}>📞</Text>
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView 
-        style={styles.flex} 
+      <KeyboardAvoidingView
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Chat Messages */}
@@ -300,11 +327,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary.purple,
   },
   sendButtonInactive: {
-    backgroundColor: colors.neutral.gray300,
+    backgroundColor: colors.neutral.gray200,
   },
   sendIcon: {
     fontSize: 20,
     color: colors.neutral.white,
     fontWeight: '600',
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.error,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  errorButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: colors.primary.purple,
+    borderRadius: 8,
+  },
+  errorButtonText: {
+    color: colors.neutral.white,
+    fontSize: 16,
+    fontWeight: '600',
+  }
 });

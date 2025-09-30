@@ -9,31 +9,25 @@ import { isDateTimeInFuture, isAtLeastMinutesInFuture, hasChanges } from '../uti
 
 interface EditRideParams {
   rideId: string;
-  start_address?: string;
-  end_address?: string;
-  departureISO: string;
-  available_seats?: number;
-  price_per_seat?: number;
-  requests?: any[];
 }
 
 export function useEditRide(params: EditRideParams) {
-  // Form state
-  const [pickup, setPickup] = useState(params.start_address || '');
-  const [dropoff, setDropoff] = useState(params.end_address || '');
-  const [departureDate, setDepartureDate] = useState(parseAsLocalTime(params.departureISO));
-  const [departureISO, setDepartureISO] = useState(params.departureISO);
-  const [tempDate, setTempDate] = useState(parseAsLocalTime(params.departureISO));
-  const [availableSeats, setAvailableSeats] = useState(String(params.available_seats || 1));
-  const [pricePerSeat, setPricePerSeat] = useState(String(params.price_per_seat || 5));
+  // Form state - initialized empty, populated by fetchRideData
+  const [pickup, setPickup] = useState('');
+  const [dropoff, setDropoff] = useState('');
+  const [departureDate, setDepartureDate] = useState(new Date());
+  const [departureISO, setDepartureISO] = useState('');
+  const [tempDate, setTempDate] = useState(new Date());
+  const [availableSeats, setAvailableSeats] = useState('1');
+  const [pricePerSeat, setPricePerSeat] = useState('5');
 
-  // Original values for change detection
-  const [originalValues] = useState({
-    pickup: params.start_address || '',
-    dropoff: params.end_address || '',
-    departureISO: params.departureISO,
-    availableSeats: String(params.available_seats || 1),
-    pricePerSeat: String(params.price_per_seat || 5),
+  // Original values for change detection - set after first fetch
+  const [originalValues, setOriginalValues] = useState({
+    pickup: '',
+    dropoff: '',
+    departureISO: '',
+    availableSeats: '1',
+    pricePerSeat: '5',
   });
 
   // Date/time picker states
@@ -56,18 +50,33 @@ export function useEditRide(params: EditRideParams) {
     try {
       const freshRideData = await rideService.fetchRideDetails(params.rideId);
 
-      setLocalRequests(freshRideData.requests || []);
-      setPickup(freshRideData.start_location || '');
-      setDropoff(freshRideData.end_location || '');
-      setAvailableSeats(String(freshRideData.available_seats || 1));
-      setPricePerSeat(String(freshRideData.price_per_seat || 5));
+      const pickup = freshRideData.start_location || '';
+      const dropoff = freshRideData.end_location || '';
+      const availableSeats = String(freshRideData.available_seats || 1);
+      const pricePerSeat = String(freshRideData.price_per_seat || 5);
+      const departureISO = freshRideData.departure_time || '';
 
-      if (freshRideData.departure_time) {
-        const departureTime = parseAsLocalTime(freshRideData.departure_time);
+      setLocalRequests(freshRideData.requests || []);
+      setPickup(pickup);
+      setDropoff(dropoff);
+      setAvailableSeats(availableSeats);
+      setPricePerSeat(pricePerSeat);
+
+      if (departureISO) {
+        const departureTime = parseAsLocalTime(departureISO);
         setDepartureDate(departureTime);
         setTempDate(departureTime);
-        setDepartureISO(freshRideData.departure_time);
+        setDepartureISO(departureISO);
       }
+
+      // Set original values for change detection (only on first load)
+      setOriginalValues({
+        pickup,
+        dropoff,
+        departureISO,
+        availableSeats,
+        pricePerSeat,
+      });
     } catch (error: any) {
       setError(error.message || 'Failed to load ride details');
     } finally {
@@ -85,35 +94,6 @@ export function useEditRide(params: EditRideParams) {
       fetchRideData();
     }, [fetchRideData])
   );
-
-  // Initialize form from params
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (params.start_address) setPickup(params.start_address);
-      if (params.end_address) setDropoff(params.end_address);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [params.start_address, params.end_address]);
-
-  // Convert nav params to proper format
-  useEffect(() => {
-    if (params.requests) {
-      const convertedRequests: DriverRideRequest[] = params.requests.map((req) => ({
-        id: req.id,
-        status: 'pending' as const,
-        message: null,
-        requested_at: new Date().toISOString(),
-        rider: {
-          id: '',
-          name: req.rider.name,
-          photo: req.rider.photo || null,
-          rating: req.rider.rating || 0,
-          total_rides: 0,
-        },
-      }));
-      setLocalRequests(convertedRequests);
-    }
-  }, [params.requests]);
 
   // Visible requests (exclude declined)
   const visibleRequests = useMemo(
