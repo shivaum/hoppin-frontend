@@ -253,7 +253,7 @@ export default function OfferRide() {
             onChange={setPickupText}
             onSelect={(addr, coords) => {
               setPickupText(addr);
-              setPickup(coords);
+              setPickup(coords ?? null);
             }}
           />
         </View>
@@ -267,7 +267,7 @@ export default function OfferRide() {
             onChange={setDropoffText}
             onSelect={(addr, coords) => {
               setDropoffText(addr);
-              setDropoff(coords);
+              setDropoff(coords ?? null);
             }}
           />
         </View>
